@@ -1,0 +1,34 @@
+name: Checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: plugins/review-desk/package-lock.json
+      - run: python plugins/review-desk/tests/test_review_desk.py
+      - run: npm ci
+        working-directory: plugins/review-desk
+      - run: node tests/test_panel.cjs
+        working-directory: plugins/review-desk
+      - run: node node_modules/prettier/bin/prettier.cjs --check web/panel.html tests/test_panel.cjs
+        working-directory: plugins/review-desk
+      - run: python scripts/package_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}-${{ matrix.python }}
+          path: dist/

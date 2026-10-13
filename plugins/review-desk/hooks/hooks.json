@@ -1,0 +1,19 @@
+{
+  "description": "Generate review snapshots only in projects that explicitly enable Review Desk.",
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{
+      "type": "command",
+      "command": "python3 \"${PLUGIN_ROOT}/scripts/review_desk.py\" hook begin",
+      "commandWindows": "python \"${PLUGIN_ROOT}/scripts/review_desk.py\" hook begin",
+      "timeout": 20,
+      "statusMessage": "记录本轮代码审查基线"
+    }]}],
+    "Stop": [{"hooks": [{
+      "type": "command",
+      "command": "python3 \"${PLUGIN_ROOT}/scripts/review_desk.py\" hook finish",
+      "commandWindows": "python \"${PLUGIN_ROOT}/scripts/review_desk.py\" hook finish",
+      "timeout": 20,
+      "statusMessage": "准备代码和运行效果审查"
+    }]}]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Desk · 项目设置"
+  short_description: "Set up Review Desk snapshots and optional web previews."
+  default_prompt: "使用 $review-setup 为当前项目配置代码审查与运行预览。"

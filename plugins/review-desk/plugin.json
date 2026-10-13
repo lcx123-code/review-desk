@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "review-desk",
+  "version": "0.2.0",
+  "description": "Review Codex changes and running web previews, then send precise feedback back to the conversation.",
+  "license": "MIT",
+  "keywords": ["code-review", "preview", "feedback"],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/review-setup/SKILL.md",
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "Review Desk",
+        "shortDescription": "代码 diff、运行预览和反馈，放在同一个审查面板里。",
+        "longDescription": "为 Codex 的本地编码任务生成审查面板，保留任务前快照，逐行评论、体验 Web 页面，并将反馈带回对话。",
+        "developerName": "Review Desk contributors",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "defaultPrompt": ["使用 Review Desk 完成这次修改，写完后让我审查代码和运行效果。"],
+        "brandColor": "#216651"
+      }
+    }
+  }
+}

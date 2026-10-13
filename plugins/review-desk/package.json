@@ -1,0 +1,15 @@
+{
+  "name": "review-desk-ui-tests",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/test_panel.cjs",
+    "format": "prettier --write web/panel.html tests/test_panel.cjs",
+    "format:check": "prettier --check web/panel.html tests/test_panel.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0",
+    "prettier": "3.6.2"
+  },
+  "engines": {"node": ">=20"}
+}

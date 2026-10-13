@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Desk · 审查修改"
+  short_description: "Review code diffs and web previews, then send feedback."
+  default_prompt: "使用 $review-changes 完成这次代码修改，并准备代码和运行效果让我 review。"

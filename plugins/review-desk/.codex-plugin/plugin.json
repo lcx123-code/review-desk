@@ -1,0 +1,14 @@
+{
+  "name": "review-desk",
+  "version": "0.2.0",
+  "description": "Review code changes, live previews, and send feedback to Codex.",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Review Desk",
+    "shortDescription": "代码 diff、运行预览和反馈，放在同一个审查面板里。",
+    "developerName": "Review Desk contributors",
+    "category": "Productivity"
+  }
+}

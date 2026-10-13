@@ -1,0 +1,2677 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Review Desk · 审查修改</title>
+    <style>
+      :root {
+        --bg: #f6f8fa;
+        --surface: #fff;
+        --ink: #232b32;
+        --muted: #77818b;
+        --line: #e5e9ee;
+        --green: #216651;
+        --soft: #edf5f1;
+        --red: #b4504b;
+        --sans: "Segoe UI", Arial, "Microsoft YaHei", sans-serif;
+        --mono: "Cascadia Code", Consolas, monospace;
+        --code: #1d2329;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        height: 100dvh;
+        min-height: 650px;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--ink);
+        font: 13px/1.6 var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      input,
+      textarea {
+        outline-offset: 3px;
+      }
+      button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--ink);
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      button:hover {
+        background: #f1f4f6;
+        border-color: #cdd6db;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--green);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .primary {
+        background: var(--green);
+        border-color: var(--green);
+        color: white;
+      }
+      .primary:hover {
+        background: #19533f;
+        border-color: #19533f;
+      }
+      .quiet {
+        border-color: transparent;
+        background: transparent;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .plus {
+        color: var(--green);
+      }
+      .minus {
+        color: var(--red);
+      }
+      a {
+        color: var(--green);
+      }
+      .icon {
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+        flex-shrink: 0;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vertical-align: middle;
+      }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+      }
+      .top {
+        height: 64px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 24px;
+        background: #fff;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 650;
+        letter-spacing: -0.5px;
+        white-space: nowrap;
+      }
+      .mark {
+        width: 31px;
+        height: 31px;
+        border-radius: 8px;
+        background: var(--green);
+        color: #fff;
+        justify-content: center;
+      }
+      .mark .icon {
+        width: 20px;
+        height: 20px;
+      }
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .local-indicator {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        color: var(--muted);
+        margin-right: 8px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #548674;
+        display: inline-block;
+        flex-shrink: 0;
+      }
+      .heading {
+        padding: 17px 24px 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        flex-shrink: 0;
+      }
+      .heading-main {
+        min-width: 0;
+      }
+      .task-heading-line {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 21px;
+        line-height: 1.5;
+        font-weight: 600;
+        letter-spacing: -0.6px;
+        overflow-wrap: anywhere;
+      }
+      .summary {
+        margin: 5px 0 0;
+        max-width: 1000px;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: pre-line;
+      }
+      .stats {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        white-space: nowrap;
+        color: #626e77;
+      }
+      .stat-diffs {
+        display: flex;
+        gap: 10px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 5px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #8a6728;
+        background: #fff3de;
+        white-space: nowrap;
+      }
+      .badge.red {
+        color: var(--red);
+        background: #fceeed;
+      }
+      .badge.gray {
+        color: var(--muted);
+        background: #eef1f4;
+      }
+      .workspace {
+        display: flex;
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .main {
+        min-width: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .tabs {
+        height: 52px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+        background: #fafbfc;
+        z-index: 3;
+      }
+      .tab-list {
+        display: flex;
+        align-items: stretch;
+        align-self: stretch;
+        gap: 21px;
+      }
+      .tab {
+        border: 0;
+        padding: 0 1px;
+        border-radius: 0;
+        background: transparent;
+        color: var(--muted);
+        position: relative;
+        white-space: nowrap;
+      }
+      .tab:hover {
+        background: transparent;
+        color: var(--ink);
+      }
+      .tab.active {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .tab.active:after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+        background: var(--green);
+        left: 0;
+        right: 0;
+      }
+      #check-count {
+        font-size: 10px;
+        color: var(--muted);
+        background: #eaf0ed;
+        padding: 0 5px;
+        border-radius: 3px;
+      }
+      .view-actions {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+      }
+      .file-select {
+        position: relative;
+        min-width: 0;
+      }
+      #file-picker-toggle {
+        max-width: 280px;
+        min-width: 150px;
+        height: 32px;
+        justify-content: flex-start;
+        background: #fff;
+      }
+      #file-path {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+      .chevron {
+        margin-left: 15px;
+        color: var(--muted);
+      }
+      .file-popover {
+        position: absolute;
+        right: 0;
+        top: 40px;
+        width: 350px;
+        max-width: calc(100vw - 28px);
+        background: #fff;
+        padding: 12px;
+        border: 1px solid var(--line);
+        box-shadow: 0 12px 36px #1b2a3418;
+        border-radius: 9px;
+        z-index: 8;
+      }
+      .side-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 2px 10px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 9px;
+        margin-bottom: 9px;
+        color: var(--muted);
+      }
+      .search-wrap input {
+        border: 0;
+        background: transparent;
+        min-width: 0;
+        width: 100%;
+        outline: 0;
+      }
+      .search-wrap:focus-within {
+        border-color: var(--green);
+      }
+      .file-list {
+        max-height: 300px;
+        overflow: auto;
+      }
+      .file {
+        display: flex;
+        width: 100%;
+        border-color: transparent;
+        text-align: left;
+        justify-content: flex-start;
+        padding: 9px;
+        margin: 2px 0;
+        gap: 8px;
+      }
+      .file.active {
+        color: var(--green);
+        background: var(--soft);
+        border-color: #deebe4;
+      }
+      .file-name {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        flex: 1;
+      }
+      .file-icon,
+      .file-stats {
+        font: 10px var(--mono);
+        flex-shrink: 0;
+      }
+      .file-stats {
+        color: var(--muted);
+      }
+      #search-empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 20px;
+      }
+      #split-view {
+        padding: 7px;
+        height: 32px;
+        width: 33px;
+      }
+      #split-view[aria-pressed="true"] {
+        background: var(--soft);
+        border-color: #dce8e1;
+        color: var(--green);
+      }
+      .panes {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .panes.split {
+        grid-template-columns: minmax(0, var(--split, 55%)) 7px minmax(0, 1fr);
+      }
+      .panes.checking {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      #code-pane {
+        min-height: 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--code);
+        color: #cbd3da;
+      }
+      .filebar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 18px;
+        height: 52px;
+        flex-shrink: 0;
+        border-bottom: 1px solid #30383f;
+      }
+      .code-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #e7edf0;
+        font-weight: 550;
+      }
+      #code-file {
+        font-size: 11px;
+        color: #8f9ca6;
+        font-weight: 400;
+        max-width: 170px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #mark-viewed {
+        background: #28332f;
+        border-color: #3c4b44;
+        color: #bad8c9;
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+      .code-caption {
+        padding: 7px 18px;
+        font-size: 10px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: #788995;
+        border-bottom: 1px solid #2d373e;
+        flex-shrink: 0;
+      }
+      .code-caption .icon {
+        width: 12px;
+        height: 12px;
+      }
+      .diff-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+      }
+      .diff {
+        border-collapse: collapse;
+        font: 12px/1.85 var(--mono);
+        width: 100%;
+        table-layout: auto;
+      }
+      .diff td {
+        padding: 0 6px;
+        white-space: pre;
+        vertical-align: top;
+      }
+      .diff .num {
+        width: 29px;
+        min-width: 29px;
+        text-align: right;
+        color: #657580;
+        user-select: none;
+        font-size: 10px;
+      }
+      .diff .sign {
+        width: 18px;
+        color: #8fa695;
+        user-select: none;
+        text-align: center;
+      }
+      .diff .code {
+        min-width: 100px;
+        width: 100%;
+        padding-right: 20px;
+      }
+      .diff tr:not(.hunk) {
+        cursor: pointer;
+      }
+      .diff tr:not(.hunk):hover {
+        background: #344049;
+      }
+      .diff tr.add {
+        background: #1e372d;
+        color: #c5ddcd;
+      }
+      .diff tr.delete {
+        background: #3f2b2c;
+        color: #ddb0aa;
+      }
+      .diff tr.hunk td {
+        color: #7e9289;
+        font-size: 10px;
+        padding: 6px 12px;
+        background: #252e32;
+      }
+      .diff tr.comment-focus {
+        outline: 2px solid #84bba3;
+        outline-offset: -2px;
+        background: #385a49;
+      }
+      .syntax-keyword {
+        color: #a8b5f4;
+      }
+      .syntax-string {
+        color: #c4d78f;
+      }
+      .syntax-number {
+        color: #8fcbdc;
+      }
+      .syntax-comment {
+        color: #7e978b;
+      }
+      .no-newline {
+        display: block;
+        font-size: 10px;
+        color: #e5bd7b;
+      }
+      .code-footer {
+        display: flex;
+        justify-content: space-between;
+        padding: 7px 18px;
+        border-top: 1px solid #30383f;
+        color: #718477;
+        font: 9px var(--mono);
+        flex-shrink: 0;
+      }
+      .code-footer .dot {
+        width: 4px;
+        height: 4px;
+      }
+      .notes {
+        padding: 10px 16px;
+        font-size: 12px;
+        color: #e1c38a;
+        background: #3a352b;
+        overflow-wrap: anywhere;
+      }
+      .split-divider {
+        background: #e6eaee;
+        border: 0;
+        padding: 0;
+        border-radius: 0;
+        width: 7px;
+        cursor: col-resize;
+        position: relative;
+        z-index: 2;
+        touch-action: none;
+      }
+      .split-divider:before {
+        content: "";
+        position: absolute;
+        top: calc(50% - 18px);
+        left: -5px;
+        width: 15px;
+        height: 36px;
+        background: #f5f7f9;
+        border: 1px solid #cbd2d8;
+        border-radius: 5px;
+      }
+      .split-divider:after {
+        content: "";
+        position: absolute;
+        top: calc(50% - 7px);
+        left: 3px;
+        width: 1px;
+        height: 14px;
+        background: #89959d;
+      }
+      .split-divider:hover {
+        background: #c5d8cf;
+      }
+      #preview-pane {
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: #f3f6f8;
+      }
+      .preview-tools {
+        min-height: 52px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        flex-wrap: wrap;
+      }
+      .preview-title {
+        font-size: 12px;
+        font-weight: 550;
+        margin-right: auto;
+      }
+      .preview-tools button {
+        padding: 4px 9px;
+        font-size: 11px;
+      }
+      .preview-tools button[aria-pressed="true"] {
+        color: var(--green);
+        background: #e0ece6;
+        border-color: #d5e5dc;
+      }
+      .preview-canvas {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 18px;
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+      }
+      .preview-frame {
+        position: relative;
+        width: 100%;
+        min-height: 380px;
+        background: #fff;
+        border: 1px solid #e4e9ed;
+        border-radius: 8px;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .preview-frame.mobile {
+        width: 390px;
+      }
+      iframe {
+        width: 100%;
+        height: 100%;
+        min-height: 420px;
+        border: 0;
+        display: block;
+        background: #fff;
+      }
+      .pick-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: #21665116;
+        outline: 2px dashed var(--green);
+        outline-offset: -3px;
+        cursor: crosshair;
+      }
+      .picking .pick-overlay {
+        display: block;
+      }
+      .preview-help {
+        color: var(--muted);
+        font-size: 10px;
+        padding: 8px 14px;
+        flex-shrink: 0;
+        border-top: 1px solid var(--line);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .url {
+        max-width: 45%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--mono);
+        color: #8c979e;
+      }
+      .preview-help a {
+        margin-left: auto;
+        white-space: nowrap;
+      }
+      .check-list {
+        padding: 28px;
+        min-height: 0;
+        overflow: auto;
+      }
+      .checks-intro {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 12px;
+      }
+      .checks-intro h3 {
+        font-size: 16px;
+        margin: 0;
+      }
+      .checks-intro p {
+        margin: 3px 0 0;
+        color: var(--muted);
+      }
+      .check {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .feedback {
+        width: 292px;
+        flex-shrink: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: #fafbfc;
+        border-left: 1px solid var(--line);
+      }
+      .workspace:not(.feedback-open) .feedback {
+        display: none;
+      }
+      .feedback-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+        min-height: 52px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .feedback-head h2 {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      #comment-count {
+        font: 11px var(--mono);
+        color: var(--muted);
+        background: #eaf0ed;
+        padding: 2px 5px;
+        border-radius: 4px;
+      }
+      .feedback-head .head-actions {
+        display: flex;
+        gap: 2px;
+      }
+      .feedback-head button {
+        padding: 3px 7px;
+        font-size: 17px;
+      }
+      .feedback-filters {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 12px 14px 5px;
+      }
+      .feedback-filters button {
+        border-color: transparent;
+        font-size: 11px;
+        padding: 3px 9px;
+        background: transparent;
+      }
+      .feedback-filters button[aria-pressed="true"] {
+        background: #e6efea;
+        color: var(--green);
+      }
+      #pending-label {
+        font-size: 10px;
+        margin-left: auto;
+        color: var(--muted);
+      }
+      .comments {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 9px 12px;
+      }
+      .comment {
+        border: 1px solid #e4e9ee;
+        background: #fff;
+        border-radius: 8px;
+        padding: 13px;
+        margin-bottom: 10px;
+      }
+      .comment.resolved {
+        opacity: 0.65;
+      }
+      .comment-label {
+        display: flex;
+        min-width: 0;
+      }
+      .comment-jump {
+        background: transparent;
+        border: 0;
+        justify-content: flex-start;
+        padding: 0;
+        font-size: 11px;
+        color: var(--green);
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        text-align: left;
+      }
+      .comment-jump:hover {
+        background: transparent;
+        text-decoration: underline;
+      }
+      .comment p {
+        margin: 10px 0 13px;
+        font-size: 12px;
+        color: #414b52;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      .comment-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .comment-snippet {
+        margin: 0 0 12px;
+        padding: 9px;
+        border-radius: 5px;
+        background: #222a30;
+        color: #c7d8ce;
+        font: 10px/1.7 var(--mono);
+        overflow: auto;
+        white-space: pre;
+        max-height: 72px;
+      }
+      .comment-context {
+        padding: 8px;
+        margin: 0 0 12px;
+        border: 1px solid var(--line);
+        background: #f5f8f7;
+        color: var(--muted);
+        font-size: 10px;
+        border-radius: 5px;
+        overflow-wrap: anywhere;
+      }
+      .comment-meta button {
+        padding: 4px 7px;
+        font-size: 10px;
+        color: var(--green);
+      }
+      .feedback-bottom {
+        padding: 12px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        flex-shrink: 0;
+        background: #fafbfc;
+      }
+      .feedback-bottom button {
+        width: 100%;
+      }
+      .bridge-note {
+        font-size: 10px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .footer {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 20px;
+        gap: 15px;
+        min-height: 51px;
+        font-size: 11px;
+        background: #fafbfc;
+      }
+      .progress-group {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        color: #5d6972;
+      }
+      #viewed-count {
+        font-family: var(--mono);
+        color: #303b42;
+      }
+      .review-progress {
+        height: 5px;
+        width: 165px;
+        background: #e1e6ea;
+        overflow: hidden;
+        border-radius: 5px;
+      }
+      #review-progress {
+        background: #528f76;
+        display: block;
+        height: 100%;
+        border-radius: 5px;
+        transition: width 0.2s;
+      }
+      #progress-label {
+        display: none;
+      }
+      .footer-right {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        min-width: 0;
+      }
+      #revision {
+        font: 9px var(--mono);
+        color: #919aa3;
+      }
+      #feedback-toggle {
+        height: 31px;
+        padding: 5px 10px;
+        color: #54656d;
+      }
+      #feedback-toggle[aria-expanded="true"] {
+        color: var(--green);
+        border-color: #ceddd5;
+        background: var(--soft);
+      }
+      .empty {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+        padding: 35px 20px;
+        color: var(--muted);
+        font-size: 12px;
+        min-height: 170px;
+        white-space: pre-line;
+      }
+      .empty strong {
+        font-size: 14px;
+        font-weight: 500;
+        color: #52616b;
+      }
+      .empty-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        width: 39px;
+        height: 39px;
+        margin-bottom: 7px;
+      }
+      #diff-empty {
+        color: #839399;
+      }
+      #diff-empty strong {
+        color: #adbdc2;
+      }
+      .dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        background: #18272f55;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+      }
+      .dialog {
+        width: 460px;
+        max-width: 100%;
+        max-height: calc(100dvh - 36px);
+        overflow: auto;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 25px;
+        box-shadow: 0 15px 60px #12222925;
+      }
+      .dialog h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 13px;
+      }
+      .dialog label {
+        display: block;
+        font-size: 12px;
+        color: #65747d;
+        margin-top: 14px;
+      }
+      .dialog input,
+      .dialog textarea {
+        display: block;
+        width: 100%;
+        margin-top: 7px;
+        padding: 10px;
+        border: 1px solid #dce3e8;
+        border-radius: 7px;
+        background: #fbfcfd;
+        color: var(--ink);
+      }
+      .dialog textarea {
+        min-height: 130px;
+        resize: vertical;
+      }
+      .counter {
+        text-align: right;
+        color: var(--muted);
+        font-size: 10px;
+        margin-top: 6px;
+      }
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      #comment-target {
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+      #copy-text {
+        min-height: 230px;
+        font: 11px/1.7 var(--mono);
+      }
+      .task-dialog {
+        width: 540px;
+      }
+      .task-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .task-heading h2 {
+        margin-bottom: 0;
+      }
+      .eyebrow {
+        font: 9px var(--mono);
+        letter-spacing: 1.5px;
+        color: var(--muted);
+      }
+      .review-tasks {
+        max-height: 340px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      .review-task {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 13px;
+        text-align: left;
+        gap: 3px;
+      }
+      .review-task strong {
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .review-task small {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .review-task span {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        font-size: 11px;
+        color: #78858e;
+      }
+      #task-error {
+        color: var(--red);
+        font-size: 12px;
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        max-width: calc(100vw - 36px);
+        background: #263d33;
+        color: #fff;
+        border-radius: 8px;
+        padding: 10px 18px;
+        box-shadow: 0 4px 16px #1d2c3220;
+        z-index: 30;
+        font-size: 12px;
+      }
+      .toast.error {
+        background: #853f39;
+      }
+      @media (min-width: 1600px) {
+        .feedback {
+          width: 310px;
+        }
+      }
+      @media (max-width: 1050px) {
+        .local-indicator {
+          display: none;
+        }
+        .code-caption > span:last-child {
+          display: none;
+        }
+        .tabs {
+          padding: 0 14px;
+        }
+        .tab-list {
+          gap: 16px;
+        }
+        .feedback {
+          width: 260px;
+        }
+      }
+      @media (max-width: 900px) {
+        .feedback {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 292px;
+          z-index: 5;
+          box-shadow: -8px 0 28px #152e3914;
+        }
+        .panes.split {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .panes.split #split-divider {
+          display: none !important;
+        }
+        .panes.split[data-active="code"] #preview-pane,
+        .panes.split[data-active="preview"] #code-pane {
+          display: none;
+        }
+        #split-view {
+          display: none;
+        }
+      }
+      @media (max-width: 620px) {
+        body {
+          min-height: 650px;
+        }
+        .top {
+          padding: 11px 14px;
+          height: auto;
+          min-height: 62px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .brand {
+          font-size: 16px;
+        }
+        .top-actions {
+          gap: 4px;
+        }
+        .top-actions button {
+          padding: 6px 9px;
+          font-size: 11px;
+        }
+        #export {
+          display: none;
+        }
+        #task-switch span {
+          display: none;
+        }
+        .heading {
+          padding: 13px 14px;
+          flex-direction: column;
+          gap: 8px;
+          align-items: flex-start;
+        }
+        h1 {
+          font-size: 17px;
+        }
+        .summary {
+          font-size: 11px;
+          max-height: 36px;
+          overflow: auto;
+        }
+        .stats {
+          font-size: 11px;
+        }
+        .tabs {
+          height: auto;
+          min-height: 83px;
+          flex-wrap: wrap;
+          gap: 0;
+          padding: 0 14px 9px;
+        }
+        .tab-list {
+          height: 40px;
+          width: 100%;
+          gap: 22px;
+        }
+        .tab {
+          font-size: 12px;
+        }
+        .tab .icon {
+          display: none;
+        }
+        .view-actions {
+          width: 100%;
+        }
+        .file-select {
+          width: 100%;
+        }
+        #file-picker-toggle {
+          max-width: none;
+          width: 100%;
+        }
+        .file-popover {
+          left: 0;
+          right: auto;
+          width: 350px;
+        }
+        .feedback {
+          width: min(310px, calc(100vw - 18px));
+        }
+        .code-caption,
+        .code-footer {
+          font-size: 9px;
+        }
+        .preview-canvas {
+          padding: 10px;
+        }
+        .preview-help .url {
+          display: none;
+        }
+        .preview-title {
+          margin-right: 0;
+        }
+        .preview-tools {
+          gap: 5px;
+          padding: 9px;
+        }
+        .preview-tools button {
+          padding: 4px 7px;
+        }
+        .footer {
+          padding: 9px 13px;
+          gap: 8px;
+        }
+        .progress-group {
+          gap: 8px;
+          font-size: 10px;
+        }
+        .review-progress {
+          width: 65px;
+        }
+        #revision {
+          display: none;
+        }
+        .footer-right {
+          gap: 0;
+        }
+        .dialog {
+          padding: 20px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="mark" data-icon="brand"></span>Review Desk
+      </div>
+      <div class="top-actions">
+        <span class="local-indicator"
+          ><span id="connection-dot" class="dot"></span
+          ><span id="connection-title">正在连接…</span></span
+        >
+        <button id="task-switch" class="quiet">
+          <span data-icon="folder"></span>审查任务
+        </button>
+        <button
+          id="refresh"
+          class="quiet"
+          aria-label="刷新当前审查"
+          title="重新读取当前代码"
+        >
+          <span data-icon="refresh"></span>
+        </button>
+        <button
+          id="export"
+          class="quiet"
+          aria-label="导出反馈"
+          title="导出反馈"
+        >
+          <span data-icon="download"></span>
+        </button>
+        <button id="approve" class="primary">
+          <span data-icon="check"></span>通过审查
+        </button>
+      </div>
+    </header>
+    <section class="heading">
+      <div class="heading-main">
+        <div class="task-heading-line">
+          <h1 id="title">正在加载审查…</h1>
+          <span id="decision" class="badge">待审查</span>
+        </div>
+        <p id="summary" class="summary">读取代码修改和预览信息</p>
+      </div>
+      <div class="stats">
+        <span id="file-count">— 个文件</span
+        ><span class="stat-diffs"
+          ><span id="added" class="plus mono">+0</span
+          ><span id="deleted" class="minus mono">−0</span></span
+        >
+      </div>
+    </section>
+    <section class="workspace feedback-open" id="workspace">
+      <main class="main">
+        <nav class="tabs">
+          <div class="tab-list" role="tablist" aria-label="审查内容">
+            <button
+              class="tab active"
+              id="tab-code"
+              role="tab"
+              aria-selected="true"
+              aria-controls="code-pane"
+            >
+              <span data-icon="code"></span>代码改动
+            </button>
+            <button
+              class="tab"
+              id="tab-preview"
+              role="tab"
+              aria-selected="false"
+              aria-controls="preview-pane"
+            >
+              <span data-icon="monitor"></span>运行预览
+            </button>
+            <button
+              class="tab"
+              id="tab-checks"
+              role="tab"
+              aria-selected="false"
+              aria-controls="checks-pane"
+            >
+              <span data-icon="shield"></span>检查
+              <span id="check-count"></span>
+            </button>
+          </div>
+          <div class="view-actions">
+            <div class="file-select">
+              <button
+                id="file-picker-toggle"
+                aria-expanded="false"
+                aria-controls="file-picker"
+                aria-label="选择修改的文件"
+              >
+                <span data-icon="folder"></span
+                ><span id="file-path" class="mono">选择文件</span
+                ><span class="chevron">⌄</span>
+              </button>
+              <div id="file-picker" class="file-popover hidden">
+                <div class="side-title">
+                  修改的文件 <span id="picker-count"></span>
+                </div>
+                <label class="search-wrap"
+                  ><span data-icon="search"></span
+                  ><input
+                    id="file-search"
+                    type="search"
+                    placeholder="查找文件…"
+                    aria-label="查找修改的文件"
+                /></label>
+                <div id="file-list" class="file-list"></div>
+                <div id="search-empty" class="hidden">没有匹配的文件</div>
+              </div>
+            </div>
+            <button
+              id="split-view"
+              aria-pressed="true"
+              aria-label="切换代码与预览并排显示"
+              title="代码与预览并排显示"
+            >
+              <span data-icon="split"></span>
+            </button>
+          </div>
+        </nav>
+        <div class="panes split" id="panes" data-active="code">
+          <section id="code-pane" role="tabpanel" aria-labelledby="tab-code">
+            <div class="filebar">
+              <span class="code-title"
+                >代码改动 <span id="code-file" class="mono"></span></span
+              ><button id="mark-viewed">标记已看</button>
+            </div>
+            <div id="file-note" class="notes hidden"></div>
+            <div class="code-caption">
+              <span><span data-icon="branch"></span>任务开始前 → 当前版本</span
+              ><span>点击代码行，留下意见</span>
+            </div>
+            <div class="diff-scroll" id="diff-scroll">
+              <table class="diff" aria-label="代码差异">
+                <tbody id="diff-rows"></tbody>
+              </table>
+              <div id="diff-empty" class="empty hidden">
+                <strong>没有代码改动</strong>本次任务与开始前快照一致。
+              </div>
+            </div>
+            <div class="code-footer">
+              <span><span class="dot"></span>任务快照已保存</span
+              ><span>− 删除 / ＋ 新增</span>
+            </div>
+          </section>
+          <div
+            id="split-divider"
+            class="split-divider"
+            role="separator"
+            aria-label="调整代码与预览的分栏比例"
+            aria-orientation="vertical"
+            aria-valuemin="35"
+            aria-valuemax="70"
+            aria-valuenow="55"
+            tabindex="0"
+          ></div>
+          <section
+            id="preview-pane"
+            role="tabpanel"
+            aria-labelledby="tab-preview"
+          >
+            <div class="preview-tools">
+              <span class="preview-title">运行预览</span
+              ><button id="desktop" aria-pressed="true">桌面</button
+              ><button id="mobile" aria-pressed="false">手机</button
+              ><button
+                id="preview-reload"
+                aria-label="重新加载预览"
+                title="重新加载预览"
+              >
+                <span data-icon="refresh"></span></button
+              ><button id="pick">标记界面</button>
+            </div>
+            <div id="preview-empty" class="empty">
+              <span class="empty-icon" data-icon="monitor"></span
+              ><strong>等待运行预览</strong>让 Codex
+              启动项目，并提供运行地址。<br />非 Web
+              项目可在修改说明中查看运行方法。
+            </div>
+            <div id="preview-canvas" class="preview-canvas hidden">
+              <div class="preview-frame" id="preview-frame">
+                <iframe
+                  id="preview-iframe"
+                  title="项目运行预览"
+                  sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                  referrerpolicy="no-referrer"
+                ></iframe>
+                <div
+                  class="pick-overlay"
+                  id="pick-overlay"
+                  aria-label="选择界面反馈位置"
+                ></div>
+              </div>
+            </div>
+            <div id="preview-help" class="preview-help hidden">
+              <span id="preview-url" class="url">尚未提供运行地址</span
+              ><span id="pick-help">点击标记界面，留下位置反馈。</span
+              ><a id="preview-open" target="_blank" rel="noopener noreferrer"
+                >独立打开 ↗</a
+              >
+            </div>
+          </section>
+          <section
+            id="checks-pane"
+            class="check-list hidden"
+            role="tabpanel"
+            aria-labelledby="tab-checks"
+          >
+            <div class="checks-intro">
+              <span class="empty-icon" data-icon="shield"></span>
+              <div>
+                <h3>验证结果</h3>
+                <p>本次修改的实际检查记录。</p>
+              </div>
+            </div>
+            <div id="checks"></div>
+          </section>
+        </div>
+      </main>
+      <aside class="feedback" id="feedback-panel" aria-label="审查反馈">
+        <div class="feedback-head">
+          <h2>反馈 <span id="comment-count">0</span></h2>
+          <div class="head-actions">
+            <button
+              id="general-comment"
+              class="quiet"
+              aria-label="添加整体反馈"
+              title="添加整体反馈"
+            >
+              ＋</button
+            ><button id="feedback-close" class="quiet" aria-label="收起反馈栏">
+              ×
+            </button>
+          </div>
+        </div>
+        <div class="feedback-filters">
+          <button id="filter-all" aria-pressed="true">全部</button
+          ><button id="filter-open" aria-pressed="false">待处理</button
+          ><span id="pending-label"></span>
+        </div>
+        <div id="comments" class="comments"></div>
+        <div class="feedback-bottom">
+          <button id="send" class="primary">
+            <span data-icon="arrow"></span>发送到当前对话</button
+          ><button id="request-changes">请求修改</button
+          ><span id="bridge-note" class="bridge-note"
+            >反馈会保存到当前审查任务</span
+          >
+        </div>
+      </aside>
+    </section>
+    <footer class="footer">
+      <div class="progress-group">
+        <span>审查进度</span><span id="viewed-count">0 / 0</span>
+        <div class="review-progress">
+          <span id="review-progress" style="width: 0%"></span>
+        </div>
+        <span id="progress-label"></span>
+      </div>
+      <div class="footer-right">
+        <span id="revision">TASK SNAPSHOT · —</span
+        ><button
+          id="feedback-toggle"
+          aria-expanded="true"
+          aria-controls="feedback-panel"
+        >
+          <span data-icon="message"></span>反馈
+          <span id="feedback-total">0</span><span id="feedback-chevron">⌄</span>
+        </button>
+      </div>
+    </footer>
+    <div
+      id="comment-dialog"
+      class="dialog-backdrop hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dialog-title"
+    >
+      <form class="dialog" id="comment-form">
+        <h2 id="dialog-title">添加审查反馈</h2>
+        <div id="comment-target" class="muted mono"></div>
+        <label id="element-label" class="hidden"
+          >界面元素或区域<input
+            id="element"
+            placeholder="例如：右上角的保存按钮"
+            maxlength="250" /></label
+        ><label for="comment-text"
+          >希望如何调整<textarea
+            id="comment-text"
+            placeholder="描述你发现的问题和期望的效果…"
+            required
+            maxlength="4000"
+          ></textarea>
+        </label>
+        <div class="counter"><span id="char-count">0</span> / 4000</div>
+        <div class="dialog-actions">
+          <button type="button" id="cancel-comment">取消</button
+          ><button type="submit" class="primary" id="save-comment">
+            保存反馈
+          </button>
+        </div>
+      </form>
+    </div>
+    <div
+      id="copy-dialog"
+      class="dialog-backdrop hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="copy-title"
+    >
+      <div class="dialog">
+        <h2 id="copy-title">将反馈带回 Codex</h2>
+        <p class="muted">
+          当前是在独立浏览器中。复制下面的反馈，粘贴到原来的 Codex
+          对话即可继续修改。
+        </p>
+        <textarea
+          id="copy-text"
+          readonly
+          aria-label="可复制的审查反馈"
+        ></textarea>
+        <div class="dialog-actions">
+          <button id="copy-close">关闭</button
+          ><button id="copy-confirm" class="primary">复制反馈</button>
+        </div>
+      </div>
+    </div>
+    <div
+      id="task-dialog"
+      class="dialog-backdrop hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-title"
+    >
+      <section class="dialog task-dialog">
+        <div class="task-heading">
+          <div>
+            <div class="eyebrow">REVIEW DESK</div>
+            <h2 id="task-title">选择审查任务</h2>
+          </div>
+          <button id="task-close" class="quiet" aria-label="关闭任务选择">
+            ×
+          </button>
+        </div>
+        <p class="muted">确认项目，再打开对应的代码和反馈。</p>
+        <div id="review-tasks" class="review-tasks"></div>
+        <p id="task-error" class="hidden"></p>
+        <button id="tasks-reload">刷新任务列表</button>
+      </section>
+    </div>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    <script>
+      "use strict";
+      const BOOT = /*REVIEW_BOOT*/ null;
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      let review = BOOT?.session || null,
+        selected = null,
+        tab = "code",
+        splitMode = true,
+        target = null,
+        toastTimer,
+        modalFocus;
+      const embedded =
+        Boolean(BOOT?.embedded) ||
+        Boolean(window.openai?.callTool) ||
+        (window.parent !== window && !params.has("token"));
+      const pending = new Map();
+      let sequence = 0,
+        bridgeReady = false,
+        parentOrigin = null,
+        bridgeInitialization = Promise.resolve(),
+        sending = false,
+        commentFilter = "all";
+      const statusText = {
+        open: "待处理",
+        addressed: "待复查",
+        resolved: "已解决",
+      };
+      function notify(text, error = false) {
+        $("toast").textContent = text;
+        $("toast").classList.toggle("error", error);
+        $("toast").classList.remove("hidden");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $("toast").classList.add("hidden"), 5500);
+      }
+      function hostRpc(method, params = {}) {
+        if (!embedded) return Promise.reject(Error("当前没有 Codex 对话连接"));
+        return new Promise((resolve, reject) => {
+          const id = ++sequence;
+          const timer = setTimeout(() => {
+            pending.delete(id);
+            reject(Error("Codex 接口没有响应，可复制反馈返回对话"));
+          }, 8000);
+          pending.set(id, { resolve, reject, timer });
+          window.parent.postMessage(
+            { jsonrpc: "2.0", id, method, params },
+            parentOrigin || "*",
+          );
+        });
+      }
+      window.addEventListener("message", (event) => {
+        if (event.source !== window.parent) return;
+        const msg = event.data;
+        if (!msg || msg.jsonrpc !== "2.0") return;
+        if (parentOrigin && event.origin !== parentOrigin) return;
+        if (msg.id && pending.has(msg.id)) {
+          const item = pending.get(msg.id);
+          pending.delete(msg.id);
+          clearTimeout(item.timer);
+          if (msg.error)
+            item.reject(Error(msg.error.message || "Codex 接口请求失败"));
+          else {
+            if (msg.result && event.origin !== "null")
+              parentOrigin = event.origin;
+            item.resolve(msg.result);
+          }
+          return;
+        }
+        if (msg.method === "ui/notifications/tool-result") {
+          const data = msg.params?.structuredContent;
+          if (data?.id) {
+            review = data;
+            render();
+          } else if (data?.launcher) {
+            showTasks(data.reviews);
+          }
+        }
+        if (msg.method === "ui/notifications/host-context-changed") {
+          const theme = msg.params?.theme;
+          if (theme) document.documentElement.dataset.theme = theme;
+        }
+      });
+      function setConnection(connected) {
+        $("connection-title").textContent = connected
+          ? "当前对话已连接"
+          : embedded
+            ? "对话连接不可用"
+            : "独立窗口 · 本地保存";
+        $("connection-title").parentElement.classList.toggle(
+          "disconnected",
+          embedded && !connected,
+        );
+        $("bridge-note").textContent = connected
+          ? "反馈将提交到当前对话"
+          : embedded
+            ? "连接不可用时，可复制已保存的反馈"
+            : "反馈已在本地保存，可复制回原对话";
+      }
+      async function initializeHost() {
+        if (!embedded) {
+          setConnection(false);
+          return;
+        }
+        try {
+          await hostRpc("ui/initialize", {
+            protocolVersion: "2026-01-26",
+            appInfo: { name: "review-desk", version: "0.2.0" },
+            appCapabilities: {},
+          });
+          window.parent.postMessage(
+            {
+              jsonrpc: "2.0",
+              method: "ui/notifications/initialized",
+              params: {},
+            },
+            parentOrigin || "*",
+          );
+          bridgeReady = true;
+          setConnection(true);
+        } catch (e) {
+          setConnection(Boolean(window.openai?.callTool));
+        }
+      }
+
+      function unpack(result) {
+        if (result?.isError)
+          throw Error(
+            result.content?.find((c) => c.type === "text")?.text || "操作失败",
+          );
+        if (result?.structuredContent) return result.structuredContent;
+        const text = result?.content?.find((c) => c.type === "text")?.text;
+        if (text) return JSON.parse(text);
+        throw Error("未收到审查数据");
+      }
+      async function tool(name, args) {
+        await bridgeInitialization;
+        if (bridgeReady)
+          return unpack(await hostRpc("tools/call", { name, arguments: args }));
+        if (window.openai?.callTool)
+          return unpack(await window.openai.callTool(name, args));
+        return unpack(await hostRpc("tools/call", { name, arguments: args }));
+      }
+      async function request(path, body) {
+        const options = {
+          headers: { "X-Review-Token": params.get("token") || "" },
+        };
+        if (body) {
+          options.method = "POST";
+          options.headers["Content-Type"] = "application/json";
+          options.body = JSON.stringify(body);
+        }
+        const response = await fetch(
+          path +
+            (body
+              ? ""
+              : "?session=" +
+                encodeURIComponent(review?.id || params.get("session") || "")),
+          options,
+        );
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || "请求失败");
+        return result;
+      }
+      async function action(action, extra = {}) {
+        if (!review) throw Error("审查尚未加载");
+        const args = {
+          session_id: review.id,
+          revision: review.revision,
+          action,
+          ...extra,
+        };
+        review = embedded
+          ? await tool("review_action", args)
+          : await request("/api/action", args);
+        render();
+      }
+      async function refresh() {
+        review = embedded
+          ? await tool("refresh_review", { session_id: review.id })
+          : await request("/api/refresh", { session_id: review.id });
+        render();
+        notify("已读取最新代码");
+      }
+      function el(tag, cls, text) {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+      function bind(id, fn) {
+        $(id).addEventListener("click", () =>
+          Promise.resolve()
+            .then(fn)
+            .catch((e) => notify(e.message, true)),
+        );
+      }
+      const iconPaths = {
+        brand: "M4 6h16M4 12h9M4 18h9m3-5 2 2 4-5",
+        split: "M3 4h18v16H3Zm9 0v16",
+        folder: "M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11H3Z",
+        search: "M20 20l-5-5m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
+        code: "m8 5-6 7 6 7m8-14 6 7-6 7m-3-16-2 18",
+        monitor: "M3 4h18v13H3Zm5 17h8m-4-4v4",
+        shield: "M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6Zm-4 10 3 3 5-6",
+        message: "M3 4h18v13H8l-5 4Zm4 5h10m-10 4h6",
+        arrow: "M5 12h14m-6-6 6 6-6 6",
+        check: "m5 12 4 4L19 6",
+        refresh: "M20 8a8 8 0 1 0 1 7M20 3v6h-6",
+        download: "M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5",
+        branch:
+          "M6 3v12m12-10v3c0 4-12 1-12 5m2 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0m12-15a2 2 0 1 1-4 0 2 2 0 0 1 4 0",
+        globe:
+          "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18m-9-9c-5 5-5 13 0 18 5-5 5-13 0-18",
+        lock: "M5 10h14v11H5Zm3 0V7a4 4 0 0 1 8 0v3",
+      };
+      function icon(name) {
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("class", "icon");
+        svg.setAttribute("aria-hidden", "true");
+        const p = document.createElementNS(svg.namespaceURI, "path");
+        p.setAttribute("d", iconPaths[name] || iconPaths.code);
+        svg.append(p);
+        return svg;
+      }
+      document
+        .querySelectorAll("[data-icon]")
+        .forEach((node) => node.append(icon(node.dataset.icon)));
+      function highlight(text) {
+        const fragment = document.createDocumentFragment();
+        const re =
+          /(\/\/[^\n]*|'[^'\n]*'|"[^"\n]*"|`[^`]*`|\b(?:const|let|function|return|if|else|import|from|export|new|class|async|await|true|false|null)\b|\b\d+\b)/g;
+        let last = 0;
+        for (const match of text.matchAll(re)) {
+          fragment.append(
+            document.createTextNode(text.slice(last, match.index)),
+          );
+          const value = match[0];
+          const cls = value.startsWith("//")
+            ? "syntax-comment"
+            : /^[\x27\x22`]/.test(value)
+              ? "syntax-string"
+              : /^\d/.test(value)
+                ? "syntax-number"
+                : "syntax-keyword";
+          fragment.append(el("span", cls, value));
+          last = match.index + value.length;
+        }
+        fragment.append(document.createTextNode(text.slice(last)));
+        return fragment;
+      }
+      function filterFiles() {
+        const q = $("file-search").value.toLowerCase().trim();
+        let shown = 0;
+        for (const button of $("file-list").children) {
+          const match = button.title.toLowerCase().includes(q);
+          button.classList.toggle("hidden", !match);
+          if (match) shown++;
+        }
+        $("search-empty").classList.toggle("hidden", shown > 0 || !q);
+      }
+      $("file-search").addEventListener("input", filterFiles);
+
+      function render() {
+        if (!review) return;
+        $("title").textContent = review.title;
+        $("summary").textContent =
+          review.summary || "本次修改已准备好，请查看代码和运行效果。";
+        $("file-count").textContent = review.stats.files + " 个文件";
+        $("added").textContent = "+" + review.stats.added;
+        $("deleted").textContent = "−" + review.stats.deleted;
+        $("revision").textContent =
+          "TASK SNAPSHOT · " +
+          review.revision.slice(0, 10) +
+          " · " +
+          review.id.slice(0, 8);
+        const decision = review.decision?.value;
+        $("decision").textContent =
+          decision === "approved"
+            ? "已通过"
+            : decision === "changes_requested"
+              ? "请求修改"
+              : "待审查";
+        $("decision").classList.toggle("red", decision === "changes_requested");
+        $("approve").replaceChildren(
+          icon("check"),
+          document.createTextNode(
+            decision === "approved" ? "已通过" : "通过审查",
+          ),
+        );
+        $("approve").disabled = decision === "approved";
+        $("file-list").replaceChildren();
+        $("picker-count").textContent = review.files.length + " 个文件";
+        if (!review.files.some((f) => f.path === selected))
+          selected = review.files[0]?.path || null;
+        for (const file of review.files) {
+          const button = el(
+            "button",
+            "file" + (file.path === selected ? " active" : ""),
+          );
+          button.title = file.path;
+          button.setAttribute("aria-pressed", String(file.path === selected));
+          button.append(
+            el(
+              "span",
+              "file-icon",
+              review.viewed[file.path] === review.revision
+                ? "✓"
+                : file.status === "added"
+                  ? "A"
+                  : file.status === "deleted"
+                    ? "D"
+                    : "M",
+            ),
+            el("span", "file-name", file.path),
+            el(
+              "span",
+              "file-stats",
+              file.textual ? "+" + file.added + " −" + file.deleted : "●",
+            ),
+          );
+          button.onclick = () => {
+            selected = file.path;
+            closeFilePicker();
+            render();
+            switchTab("code");
+          };
+          $("file-list").append(button);
+        }
+        const viewed = review.files.filter(
+          (f) => review.viewed[f.path] === review.revision,
+        ).length;
+        $("viewed-count").textContent = viewed + " / " + review.files.length;
+        $("review-progress").style.width =
+          (review.files.length ? (viewed / review.files.length) * 100 : 0) +
+          "%";
+        $("progress-label").textContent = review.files.length
+          ? `已查看 ${viewed} 个，还有 ${review.files.length - viewed} 个。`
+          : "本次任务没有文件改动。";
+        filterFiles();
+        renderDiff();
+        renderComments();
+        renderChecks();
+        renderPreview();
+        $("send").disabled = sending;
+        $("task-close").disabled = false;
+        $("feedback-total").textContent = review.comments.filter(
+          (c) => c.status !== "resolved",
+        ).length;
+        applyLayout();
+      }
+      function renderDiff() {
+        const file = review.files.find((f) => f.path === selected);
+        $("diff-rows").replaceChildren();
+        $("diff-empty").classList.toggle("hidden", !!file);
+        $("file-path").textContent = file?.path || "没有文件改动";
+        $("file-picker-toggle").title = file?.path || "选择修改的文件";
+        $("code-file").textContent = file?.path || "";
+        $("mark-viewed").disabled = !file;
+        $("mark-viewed").textContent =
+          file && review.viewed[file.path] === review.revision
+            ? "✓ 已看"
+            : "标记已看";
+        $("file-note").textContent = file?.note || "";
+        $("file-note").classList.toggle("hidden", !file?.note);
+        if (!file) return;
+        for (const [index, row] of file.rows.entries()) {
+          const tr = el("tr", row.kind);
+          if (row.kind === "hunk") {
+            const td = el("td", null, row.text);
+            td.colSpan = 4;
+            tr.append(td);
+          } else {
+            tr.dataset.row = index;
+            tr.tabIndex = 0;
+            tr.setAttribute(
+              "aria-label",
+              `${row.kind === "delete" ? "旧" : "新"}代码第 ${row.newLine || row.oldLine} 行：${row.text}。添加反馈`,
+            );
+            tr.append(
+              el("td", "num", row.oldLine ?? ""),
+              el("td", "num", row.newLine ?? ""),
+              el(
+                "td",
+                "sign",
+                row.kind === "add" ? "+" : row.kind === "delete" ? "−" : " ",
+              ),
+            );
+            const code = el("td", "code");
+            code.append(highlight(row.text || " "));
+            if (row.noNewline)
+              code.append(el("span", "no-newline", "↵ 无末尾换行"));
+            tr.append(code);
+            const pick = () =>
+              openComment({
+                type: "code",
+                path: file.path,
+                side: row.kind === "delete" ? "old" : "new",
+                line: row.newLine || row.oldLine,
+              });
+            tr.onclick = pick;
+            tr.onkeydown = (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                pick();
+              }
+            };
+          }
+          $("diff-rows").append(tr);
+        }
+      }
+      function renderComments() {
+        $("comments").replaceChildren();
+        $("filter-all").setAttribute(
+          "aria-pressed",
+          String(commentFilter === "all"),
+        );
+        $("filter-open").setAttribute(
+          "aria-pressed",
+          String(commentFilter === "open"),
+        );
+        const remaining = review.comments.filter(
+          (c) => c.status !== "resolved",
+        ).length;
+        $("pending-label").textContent = remaining
+          ? `${remaining} 条待处理`
+          : "";
+        $("comment-count").textContent = review.comments.filter(
+          (c) => c.status !== "resolved",
+        ).length;
+        if (!review.comments.length) {
+          const empty = el("div", "empty");
+          empty.style.padding = "55px 5px";
+          const symbol = el("div", "empty-icon");
+          symbol.append(icon("message"));
+          empty.append(
+            symbol,
+            el("strong", null, "好的修改，来自你的意见"),
+            el("span", null, "点击代码行或标记界面。\n也可以添加整体反馈。"),
+          );
+          $("comments").append(empty);
+        }
+        for (const comment of review.comments) {
+          if (commentFilter === "open" && comment.status === "resolved")
+            continue;
+          const box = el("article", "comment " + comment.status);
+          const t = comment.target;
+          let label =
+            t.type === "code"
+              ? `${t.path}:${t.line} · ${t.side === "old" ? "旧代码" : "新代码"}`
+              : t.type === "preview"
+                ? `界面 · ${t.element || "所选区域"}`
+                : "整体反馈";
+          const labelNode = el("div", "comment-label");
+          const jump = el("button", "comment-jump");
+          jump.title = "定位反馈位置";
+          jump.onclick = () => jumpToComment(comment);
+          jump.append(
+            icon(
+              t.type === "code"
+                ? "code"
+                : t.type === "preview"
+                  ? "monitor"
+                  : "message",
+            ),
+            document.createTextNode(label),
+          );
+          labelNode.append(jump);
+          box.append(labelNode, el("p", null, comment.text));
+          if (t.type === "code" && comment.revision === review.revision) {
+            const file = review.files.find((f) => f.path === t.path);
+            const key = t.side === "old" ? "oldLine" : "newLine";
+            const at = file?.rows.findIndex((row) => row[key] === t.line) ?? -1;
+            if (at >= 0) {
+              const context = file.rows
+                .slice(Math.max(0, at - 1), at + 2)
+                .filter((row) => row.kind !== "hunk")
+                .map(
+                  (row) => `${String(row[key] ?? "").padStart(3)}  ${row.text}`,
+                )
+                .join("\n");
+              box.append(el("pre", "comment-snippet", context));
+            }
+          } else if (t.type === "preview") {
+            box.append(
+              el(
+                "div",
+                "comment-context",
+                `界面位置 · ${t.element || "所选区域"}\n视口 ${t.viewport || "未记录"}`,
+              ),
+            );
+          }
+          const meta = el("div", "comment-meta");
+          meta.append(el("span", null, statusText[comment.status]));
+          if (comment.revision !== review.revision)
+            meta.append(el("span", "badge gray", "旧版本"));
+          const button = el(
+            "button",
+            null,
+            comment.status === "resolved" ? "重新打开" : "确认解决",
+          );
+          button.onclick = () =>
+            action("comment_status", {
+              comment_id: comment.id,
+              status: comment.status === "resolved" ? "open" : "resolved",
+            }).catch((e) => notify(e.message, true));
+          meta.append(button);
+          box.append(meta);
+          $("comments").append(box);
+        }
+        if (commentFilter === "open" && review.comments.length && !remaining) {
+          const empty = el("div", "empty");
+          empty.append(
+            el("strong", null, "所有意见已确认解决"),
+            el("span", null, "切换到全部，可查看反馈记录。"),
+          );
+          $("comments").append(empty);
+        }
+      }
+      function renderChecks() {
+        $("checks").replaceChildren();
+        $("check-count").textContent = review.checks.length || "";
+        if (!review.checks.length) {
+          const empty = el("div", "empty");
+          empty.append(
+            el("strong", null, "尚未记录验证结果"),
+            el("span", null, "让 Codex 运行项目检查，并填写实际结果。"),
+          );
+          $("checks").append(empty);
+        }
+        for (const check of review.checks) {
+          const row = el("div", "check");
+          row.append(
+            el("span", "check-name", check.name),
+            el(
+              "span",
+              "badge " +
+                (check.status === "failed"
+                  ? "red"
+                  : check.status === "not_run"
+                    ? "gray"
+                    : ""),
+              check.status === "passed"
+                ? "通过"
+                : check.status === "failed"
+                  ? "失败"
+                  : "未运行",
+            ),
+          );
+          $("checks").append(row);
+        }
+      }
+      function renderPreview() {
+        const url = review.previewUrl;
+        $("preview-url").textContent = url || "尚未提供运行地址";
+        $("preview-empty").classList.toggle("hidden", !!url);
+        $("preview-canvas").classList.toggle("hidden", !url);
+        $("preview-help").classList.toggle("hidden", !url);
+        $("pick").disabled = !url;
+        $("preview-reload").disabled = !url;
+        if (url) {
+          $("preview-open").href = url;
+          if ($("preview-iframe").getAttribute("src") !== url)
+            $("preview-iframe").src = url;
+        } else {
+          $("preview-iframe").removeAttribute("src");
+        }
+      }
+      function applyLayout() {
+        const both = splitMode && tab !== "checks";
+        $("panes").classList.toggle("split", both);
+        $("panes").classList.toggle("checking", tab === "checks");
+        $("panes").dataset.active = tab;
+        $("split-divider").classList.toggle("hidden", !both);
+        $("split-view").setAttribute("aria-pressed", String(splitMode));
+        for (const name of ["code", "preview", "checks"]) {
+          $("tab-" + name).classList.toggle("active", name === tab);
+          $("tab-" + name).setAttribute("aria-selected", String(name === tab));
+          $(name + "-pane").classList.toggle(
+            "hidden",
+            name !== tab && !(both && name !== "checks"),
+          );
+        }
+      }
+      function switchTab(next) {
+        tab = next;
+        applyLayout();
+        if (embedded && bridgeReady && review)
+          hostRpc("ui/update-model-context", {
+            content: [
+              {
+                type: "text",
+                text: `Review Desk: session ${review.id}, revision ${review.revision}, viewing ${next}${next === "code" ? ", file " + selected : ""}.`,
+              },
+            ],
+          }).catch(() => {});
+      }
+      function closeFilePicker() {
+        $("file-picker").classList.add("hidden");
+        $("file-picker-toggle").setAttribute("aria-expanded", "false");
+      }
+      bind("file-picker-toggle", () => {
+        const opening = $("file-picker").classList.contains("hidden");
+        $("file-picker").classList.toggle("hidden", !opening);
+        $("file-picker-toggle").setAttribute("aria-expanded", String(opening));
+        if (opening) $("file-search").focus();
+      });
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".file-select")) closeFilePicker();
+      });
+      function setFeedback(open) {
+        $("workspace").classList.toggle("feedback-open", open);
+        $("feedback-panel").inert = !open;
+        $("feedback-toggle").setAttribute("aria-expanded", String(open));
+        $("feedback-chevron").textContent = open ? "⌄" : "⌃";
+        if (!open && $("feedback-panel").contains(document.activeElement))
+          $("feedback-toggle").focus();
+      }
+      bind("feedback-toggle", () =>
+        setFeedback(!$("workspace").classList.contains("feedback-open")),
+      );
+      bind("feedback-close", () => setFeedback(false));
+      bind("split-view", () => {
+        splitMode = !splitMode;
+        applyLayout();
+      });
+      const narrowLayout = window.matchMedia?.("(max-width: 900px)");
+      if (narrowLayout?.matches) setFeedback(false);
+      narrowLayout?.addEventListener("change", (e) => {
+        if (e.matches) setFeedback(false);
+      });
+      let resizing = false;
+      function resizeSplit(value) {
+        const bounded = Math.max(35, Math.min(70, Math.round(value)));
+        $("panes").style.setProperty("--split", bounded + "%");
+        $("split-divider").setAttribute("aria-valuenow", String(bounded));
+      }
+      $("split-divider").addEventListener("pointerdown", (e) => {
+        resizing = true;
+        $("split-divider").setPointerCapture(e.pointerId);
+      });
+      $("split-divider").addEventListener("pointermove", (e) => {
+        if (!resizing) return;
+        const rect = $("panes").getBoundingClientRect();
+        resizeSplit(((e.clientX - rect.left) / rect.width) * 100);
+      });
+      $("split-divider").addEventListener("pointerup", () => {
+        resizing = false;
+      });
+      $("split-divider").addEventListener("pointercancel", () => {
+        resizing = false;
+      });
+      $("split-divider").addEventListener("keydown", (e) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+        e.preventDefault();
+        const value = Number($("split-divider").getAttribute("aria-valuenow"));
+        resizeSplit(
+          e.key === "Home"
+            ? 35
+            : e.key === "End"
+              ? 70
+              : value + (e.key === "ArrowLeft" ? -5 : 5),
+        );
+      });
+      function showModal(id) {
+        modalFocus = document.activeElement;
+        $(id).classList.remove("hidden");
+        $(id).querySelector("textarea,input,button")?.focus();
+      }
+      function hideModal(id) {
+        $(id).classList.add("hidden");
+        modalFocus?.focus();
+      }
+      function openComment(next) {
+        if (!review) return;
+        target = next;
+        $("comment-target").textContent =
+          next.type === "code"
+            ? `${next.path}:${next.line} (${next.side === "old" ? "旧代码" : "新代码"})`
+            : next.type === "preview"
+              ? `运行预览 · ${next.element || "界面反馈"}`
+              : "针对本次修改的整体意见";
+        $("element-label").classList.toggle("hidden", next.type !== "preview");
+        $("element").value = next.element || "";
+        $("comment-text").value = "";
+        $("char-count").textContent = "0";
+        showModal("comment-dialog");
+        $("comment-text").focus();
+      }
+      $("comment-text").addEventListener(
+        "input",
+        () => ($("char-count").textContent = $("comment-text").value.length),
+      );
+      $("comment-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        $("save-comment").disabled = true;
+        try {
+          const t = { ...target };
+          if (t.type === "preview") t.element = $("element").value;
+          await action("comment", { text: $("comment-text").value, target: t });
+          hideModal("comment-dialog");
+          setFeedback(true);
+          notify("反馈已保存");
+        } catch (error) {
+          notify(error.message, true);
+        } finally {
+          $("save-comment").disabled = false;
+        }
+      });
+      for (const id of ["comment-dialog", "copy-dialog", "task-dialog"]) {
+        $(id).addEventListener("click", (e) => {
+          if (e.target === $(id) && (id !== "task-dialog" || review))
+            hideModal(id);
+        });
+        $(id).addEventListener("keydown", (e) => {
+          if (e.key !== "Tab") return;
+          const nodes = [
+            ...$(id).querySelectorAll("button,input,textarea"),
+          ].filter((n) => !n.disabled && !n.closest(".hidden"));
+          const first = nodes[0],
+            last = nodes.at(-1);
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        });
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeFilePicker();
+          hideModal("comment-dialog");
+          hideModal("copy-dialog");
+          if (review) hideModal("task-dialog");
+          $("preview-frame").classList.remove("picking");
+          $("pick").textContent = "标记界面";
+        }
+      });
+      bind("cancel-comment", () => hideModal("comment-dialog"));
+      bind("copy-close", () => hideModal("copy-dialog"));
+      bind("copy-confirm", async () => {
+        try {
+          await navigator.clipboard.writeText($("copy-text").value);
+          notify("已复制，粘贴到原来的 Codex 对话即可");
+        } catch {
+          $("copy-text").select();
+          notify("请按 Ctrl+C 复制反馈");
+        }
+      });
+      for (const name of ["code", "preview", "checks"])
+        bind("tab-" + name, () => switchTab(name));
+      bind("refresh", refresh);
+      bind("general-comment", () => openComment({ type: "general" }));
+      bind("mark-viewed", () =>
+        action("viewed", {
+          path: selected,
+          viewed: review.viewed[selected] !== review.revision,
+        }),
+      );
+      bind("approve", async () => {
+        await action("decision", { decision: "approved" });
+        notify("已记录审查通过");
+      });
+      bind("request-changes", async () => {
+        await action("decision", { decision: "changes_requested" });
+        notify("已记录修改请求；点击发送反馈即可交给 Codex");
+      });
+      bind("desktop", () => {
+        $("preview-frame").classList.remove("mobile");
+        $("desktop").setAttribute("aria-pressed", "true");
+        $("mobile").setAttribute("aria-pressed", "false");
+      });
+      bind("mobile", () => {
+        $("preview-frame").classList.add("mobile");
+        $("desktop").setAttribute("aria-pressed", "false");
+        $("mobile").setAttribute("aria-pressed", "true");
+      });
+      bind("preview-reload", () => {
+        $("preview-iframe").src = review.previewUrl;
+      });
+      bind("pick", () => {
+        const active = $("preview-frame").classList.toggle("picking");
+        $("pick").textContent = active ? "取消标记" : "标记界面";
+        if (active) notify("点击界面上希望调整的位置");
+      });
+      $("pick-overlay").onclick = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = Math.round(((e.clientX - rect.left) / rect.width) * 100),
+          y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+        $("preview-frame").classList.remove("picking");
+        $("pick").textContent = "标记界面";
+        openComment({
+          type: "preview",
+          element: `位置 ${x}% × ${y}%`,
+          viewport: `${Math.round(rect.width)} × ${Math.round(rect.height)}`,
+        });
+      };
+      async function getFeedback() {
+        return embedded
+          ? await tool("get_feedback", { session_id: review.id })
+          : await request("/api/feedback");
+      }
+      async function sendFeedback() {
+        if (sending || !review) return;
+        if (
+          !review.decision &&
+          !review.comments.some((c) => c.status !== "resolved")
+        ) {
+          notify("先添加反馈，或记录审查决定");
+          return;
+        }
+        sending = true;
+        $("send").disabled = true;
+        try {
+          let feedback;
+          try {
+            feedback = await getFeedback();
+          } catch (e) {
+            if (!embedded) throw e;
+            feedback = { message: localFeedback() };
+            notify("暂时无法读取服务，复制当前已保存的反馈", true);
+          }
+          if (embedded) {
+            try {
+              await bridgeInitialization;
+              if (bridgeReady)
+                await hostRpc("ui/message", {
+                  role: "user",
+                  content: [{ type: "text", text: feedback.message }],
+                });
+              else if (window.openai?.sendFollowUpMessage)
+                await window.openai.sendFollowUpMessage({
+                  prompt: feedback.message,
+                });
+              else throw Error("对话未连接");
+              notify("反馈已提交到当前对话");
+              return;
+            } catch (e) {
+              setConnection(false);
+              notify("发送未成功，反馈仍保留，可复制返回对话", true);
+            }
+          }
+          $("copy-text").value = feedback.message;
+          showModal("copy-dialog");
+          $("copy-text").select();
+        } finally {
+          sending = false;
+          $("send").disabled = false;
+        }
+      }
+      function localFeedback() {
+        const lines = [
+          `请读取 Review Desk session ${review.id} 的最新反馈。`,
+          `Revision: ${review.revision}`,
+        ];
+        for (const comment of review.comments) {
+          if (comment.status === "resolved") continue;
+          const t = comment.target;
+          const where =
+            t.type === "code"
+              ? `${t.path}:${t.line} (${t.side})`
+              : t.type === "preview"
+                ? `界面：${t.element || "所选位置"}`
+                : "整体反馈";
+          lines.push(`${where} [${comment.status}]: ${comment.text}`);
+        }
+        if (review.decision) lines.push(`审查决定：${review.decision.value}`);
+        lines.push("请读取最新代码，按反馈修改并验证，再刷新同一审查任务。");
+        return lines.join("\n");
+      }
+      bind("send", sendFeedback);
+      bind("filter-all", () => {
+        commentFilter = "all";
+        renderComments();
+      });
+      bind("filter-open", () => {
+        commentFilter = "open";
+        renderComments();
+      });
+      function jumpToComment(comment) {
+        const t = comment.target;
+        if (t.type === "code") {
+          if (!review.files.some((f) => f.path === t.path)) {
+            notify("该文件已不在当前差异中，请参照反馈记录复查");
+            return;
+          }
+          selected = t.path;
+          $("file-search").value = "";
+          render();
+          switchTab("code");
+          const file = review.files.find((f) => f.path === selected);
+          const key = t.side === "old" ? "oldLine" : "newLine";
+          const index = file.rows.findIndex((row) => row[key] === t.line);
+          const row = $("diff-rows").querySelector(`[data-row="${index}"]`);
+          row?.scrollIntoView({ block: "center", behavior: "smooth" });
+          row?.classList.add("comment-focus");
+          if (row)
+            setTimeout(() => row.classList.remove("comment-focus"), 1800);
+        } else if (t.type === "preview") switchTab("preview");
+        else $("general-comment").focus();
+        if (comment.revision !== review.revision)
+          notify("这是旧版本意见，请确认当前代码或界面的位置");
+      }
+      async function loadTasks() {
+        try {
+          $("task-error").classList.add("hidden");
+          const data = embedded
+            ? await tool("list_reviews", {})
+            : await request("/api/reviews");
+          showTasks(data.reviews);
+        } catch (e) {
+          $("task-error").textContent = e.message;
+          $("task-error").classList.remove("hidden");
+          showModal("task-dialog");
+        }
+      }
+      function showTasks(reviews = []) {
+        $("review-tasks").replaceChildren();
+        $("task-close").disabled = !review;
+        for (const item of reviews) {
+          const button = el("button", "review-task");
+          const project =
+            item.project.split(/[\\/]/).filter(Boolean).at(-1) || item.project;
+          button.append(
+            el("strong", null, item.title),
+            el("small", null, project + " · " + item.id.slice(0, 8)),
+            el("small", null, item.project),
+            el("span", null, `${item.pendingComments} 条待处理反馈`),
+          );
+          button.onclick = async () => {
+            button.disabled = true;
+            try {
+              review = embedded
+                ? await tool("open_review", { session_id: item.id })
+                : await request("/api/refresh", { session_id: item.id });
+              selected = null;
+              commentFilter = "all";
+              $("file-search").value = "";
+              render();
+              switchTab("code");
+              hideModal("task-dialog");
+            } catch (e) {
+              $("task-error").textContent = e.message;
+              $("task-error").classList.remove("hidden");
+            } finally {
+              button.disabled = false;
+            }
+          };
+          $("review-tasks").append(button);
+        }
+        if (!reviews.length) {
+          const empty = el("div", "empty");
+          empty.append(
+            el("strong", null, "还没有审查任务"),
+            el(
+              "span",
+              null,
+              "在对话中使用 Review Desk 开始一次代码修改，写完后就能在这里审查。",
+            ),
+          );
+          $("review-tasks").append(empty);
+        }
+        showModal("task-dialog");
+      }
+      bind("task-switch", loadTasks);
+      bind("tasks-reload", loadTasks);
+      bind("task-close", () => {
+        if (review) hideModal("task-dialog");
+      });
+
+      bind("export", async () => {
+        const data = await getFeedback();
+        const url = URL.createObjectURL(
+          new Blob([JSON.stringify(data, null, 2)], {
+            type: "application/json",
+          }),
+        );
+        const a = el("a");
+        a.href = url;
+        a.download = "review-feedback-" + review.id.slice(0, 8) + ".json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        notify("反馈已导出");
+      });
+      async function boot() {
+        bridgeInitialization = initializeHost();
+        try {
+          if (window.openai?.toolOutput?.id) review = window.openai.toolOutput;
+          if (!review && !embedded) review = await request("/api/review");
+          if (review) render();
+          else {
+            $("title").textContent = "选择你想审查的任务";
+            $("summary").textContent =
+              "代码、预览和反馈，都属于你选择的那个项目。";
+            $("send").disabled = true;
+            $("mark-viewed").disabled = true;
+            $("approve").disabled = true;
+            if (BOOT?.reviews) showTasks(BOOT.reviews);
+            else if (embedded) {
+              await bridgeInitialization;
+              await loadTasks();
+            }
+          }
+          if (!embedded)
+            $("send").replaceChildren(
+              icon("arrow"),
+              document.createTextNode("复制反馈给 Codex"),
+            );
+          await bridgeInitialization;
+        } catch (e) {
+          $("title").textContent = "无法加载审查";
+          $("summary").textContent = e.message;
+          notify(e.message, true);
+        }
+      }
+      boot();
+    </script>
+  </body>
+</html>

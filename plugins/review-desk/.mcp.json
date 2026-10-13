@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "review-desk": {
+      "command": "python",
+      "args": ["${PLUGIN_ROOT}/scripts/review_desk.py", "mcp"]
+    }
+  }
+}
