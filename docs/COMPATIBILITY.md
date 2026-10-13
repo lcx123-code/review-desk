@@ -7,7 +7,7 @@
 - Frontend formatting check using Prettier 3.6.2.
 - Real Edge browser: explicit task selection, code-comment persistence and navigation, resolved-comment filtering, embedded web preview, desktop/mobile widths, feedback drawer controls, keyboard splitter adjustment and 390px layout with no page overflow. Screenshots were visually inspected; no page JavaScript errors were reported.
 
-Local backend execution used Python 3.9.13; the supported installation target remains Python 3.10+. Frontend execution used Node.js 24.16.0. CI definitions target Windows and Linux but remote CI has not run yet.
+Local backend execution used Python 3.9.13; the supported installation target remains Python 3.10+. Frontend execution used Node.js 24.16.0. [GitHub CI passed](https://github.com/lcx123-code/review-desk/actions/runs/38365564750) on Windows and Linux with Python 3.10 and 3.12 and Node.js 22, including backend tests, frontend integration, formatting and packaging.
 
 ## Requires actual client acceptance
 

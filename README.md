@@ -2,6 +2,8 @@
 
 [English](README.en.md) · [兼容性与验证](docs/COMPATIBILITY.md)
 
+[GitHub 仓库](https://github.com/lcx123-code/review-desk) · [下载 v0.2.0](https://github.com/lcx123-code/review-desk/releases/tag/v0.2.0)
+
 把代码改动、运行效果和你的反馈放在一个审查面板里。为 Codex 本地编码任务设计：修改前保留快照，修改后逐行 review，体验 Web 页面，再把意见交回同一个对话。
 
 ![代码审查](docs/screenshots/code-review.png)

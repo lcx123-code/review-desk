@@ -2,6 +2,8 @@
 
 [中文](README.md) · [Compatibility and validation](docs/COMPATIBILITY.md)
 
+[Repository](https://github.com/lcx123-code/review-desk) · [Download v0.2.0](https://github.com/lcx123-code/review-desk/releases/tag/v0.2.0)
+
 Review a Codex coding task with a before/after diff, an interactive web preview, and feedback you can send back to the conversation. A task-start snapshot preserves changes that already existed before the task.
 
 ![Code review](docs/screenshots/code-review.png)
