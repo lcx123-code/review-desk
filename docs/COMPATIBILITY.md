@@ -1,30 +1,44 @@
 # Compatibility and validation
 
-## Verified locally — 2026-10-13
+## v0.3.0 local validation — 2026-10-15
 
-- 14 backend tests: task baselines, file scope, revisions, feedback, approvals, local HTTP access control, task listings, MCP handshake and UI resources.
-- 23 frontend integration checks: a real local API with a simulated MCP host, review interactions, explicit task selection, pending filtering, duplicate-send protection, failed-send copy fallback, split/single/checks views, keyboard splitter limits, feedback drawer state, file search/navigation and actual code context.
-- Frontend formatting check using Prettier 3.6.2.
-- Real Edge browser: explicit task selection, code-comment persistence and navigation, resolved-comment filtering, embedded web preview, desktop/mobile widths, feedback drawer controls, keyboard splitter adjustment and 390px layout with no page overflow. Screenshots were visually inspected; no page JavaScript errors were reported.
+- 17 backend tests: task baselines, file scope, revisions, feedback, approvals, access control, MCP resources, preview health/recovery, delivery persistence and detached fallback services.
+- 34 frontend integration checks using a real local API and a simulated MCP host: review interactions, task selection, responsive layouts, feedback state transitions, explicit agent acknowledgement, rejection/timeout handling, preview recovery and visible fallback after accepted open requests.
+- Frontend formatting with Prettier 3.6.2.
 
-Local backend execution used Python 3.9.13; the supported installation target remains Python 3.10+. Frontend execution used Node.js 24.16.0. [GitHub CI passed](https://github.com/lcx123-code/review-desk/actions/runs/38365564750) on Windows and Linux with Python 3.10 and 3.12 and Node.js 22, including backend tests, frontend integration, formatting and packaging.
+Backend execution used Python 3.9.13; the supported installation target remains Python 3.10+. Frontend execution used Node.js 24.16.0. Automated bridge checks do not establish native client behavior. [The prior v0.2.0 CI run](https://github.com/lcx123-code/review-desk/actions/runs/38365564750) passed on Windows/Linux with Python 3.10/3.12 and Node.js 22; it does not validate v0.3.0.
 
-## Requires actual client acceptance
+## Native Codex desktop acceptance — 2026-10-15
 
-- Visibility of the `thread` extension entrypoint as a native button.
-- Sending feedback into the actual current Codex conversation.
-- Localhost preview embedding under the client's CSP and iframe restrictions.
+Tested on Windows with Codex 26.1007.9446.0, the installed v0.3.0 MCP runtime, and an isolated timer project:
 
-The current Codex host has exposed Review Desk panel context during use, but that does not establish end-to-end feedback delivery or permanent button placement. The new v0.2.0 tool declarations require plugin reload before validation.
+- An actual review card expanded into a Review Desk tab beside the existing conversation.
+- Preview health detected a stopped service, then reported the same address online after its server started.
+- Pasting the loopback address into a Codex browser tab rendered the actual timer. The review and browser tabs could be switched without leaving Codex.
+- An interface comment was saved through the native panel, and the send button placed its delivery into the current conversation queue during an active turn.
+- The agent read the exact saved delivery and explicitly acknowledged it. The native panel changed from waiting for receipt to received.
+- The agent applied the isolated comment, refreshed the same review session, marked the comment addressed, and verified the changed heading in the actual browser tab. The original baseline stayed intact.
 
-## Supported fallback
+This acceptance did not prove automatic processing of a queued message while the agent is busy: the agent explicitly fetched its feedback for the test. It also did not verify a permanent thread-extension button.
 
-The standalone local UI saves feedback and offers copy/export. It cannot initiate a Codex turn. Client connection failures preserve saved comments and expose the same copy fallback.
+## Known preview-open limitation
 
-Interactive previews target web projects. Non-web projects still receive code diffs and run instructions. Sites forbidding iframe embedding must be opened independently. Interface comments record position, description, and viewport dimensions rather than cross-origin DOM inspection.
+The tested client's `ui/open-link` request returned success, but no automatic switch to the running page was observed. Review Desk therefore does not label that response as a rendered preview. Its embedded preview always exposes a direct link, a copy button and a selectable address, including after an accepted request. If nothing opens, paste that address into a new Codex browser tab.
 
-Snapshots capture the task scope, including simultaneous edits by other processes during that task. They are bounded to 2,500 files and 20 MiB of text; oversized or binary data is represented by fingerprints and cannot receive complete UI approval.
+The previous Codex 26.1007.2314.0 origin sanitizer removed HTTP iframe origins. Actual client logs showed `frame-src 'none'` and `ERR_BLOCKED_BY_CSP` for loopback HTTP previews. Embedded previews consequently use the host browser rather than requesting an iframe. Browser placement is controlled by the host; the plugin cannot force a native tab through the documented open-link request. See the [official UI reference](https://developers.openai.com/plugins/reference).
 
-## Client acceptance checklist
+Standalone browser previews retain iframe rendering and position marking. A frame load event alone does not establish successful project rendering. Sites that forbid embedding must be viewed independently. Embedded interface feedback describes an element or region without fabricated coordinates or viewport dimensions.
 
-Install/reload the plugin, attach a small web project, run `$review-setup`, and request a task with `$review-changes`. Open the panel, add code and preview comments, send feedback, confirm that Codex receives it in the intended chat, then verify fixes by refreshing the same review session. Separately test the native entrypoint and disconnected copy mode.
+## Feedback and service recovery
+
+Feedback states distinguish saved, prepared, submitting, submitted, uncertain, failed and agent-received. An unchanged submitted or uncertain delivery cannot be resent blindly. Receipt requires the exact delivery ID, revision and payload; reading feedback alone does not assert receipt. Changed code resets approval.
+
+Preview checks are bounded and probe loopback addresses only. External sites are checked by the browser. Recovery uses the project's explicit `.codex/review-desk.json` preview URL; it does not guess ports or execute project commands. The fallback review server persists separately from the MCP connection, and its runtime version is checked before reuse.
+
+The embedded UI resource is an immutable template without a task snapshot. Task results and explicit selection bind the current review. Reload the plugin or start a new conversation when its advertised UI resource/runtime is stale.
+
+## Supported fallback and scope
+
+The standalone local UI saves feedback and offers copy/export; it cannot initiate a Codex turn. Client connection failures preserve saved comments and expose the same copy fallback. Non-web projects support code diffs and run instructions.
+
+Snapshots capture the explicit task scope, including simultaneous edits by other processes. They are bounded to 2,500 files and 20 MiB of text; oversized or binary data is fingerprinted and cannot receive complete UI approval. Review state and source snapshots remain local and are excluded from release packages.

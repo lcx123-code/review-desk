@@ -1,8 +1,10 @@
 # Review Desk
 
+Version 0.3.0 adds preview health checks, address recovery and durable feedback receipts. Embedded previews request the host browser and always retain a direct link and selectable address. In the tested Codex client, an accepted open request did not automatically switch to the page; pasting the address into a Codex browser tab rendered the actual project. See [compatibility and validation](docs/COMPATIBILITY.md).
+
 [中文](README.md) · [Compatibility and validation](docs/COMPATIBILITY.md)
 
-[Repository](https://github.com/lcx123-code/review-desk) · [Download v0.2.0](https://github.com/lcx123-code/review-desk/releases/tag/v0.2.0)
+[Repository](https://github.com/lcx123-code/review-desk) · [Download v0.3.0](https://github.com/lcx123-code/review-desk/releases/tag/v0.3.0)
 
 Review a Codex coding task with a before/after diff, an interactive web preview, and feedback you can send back to the conversation. A task-start snapshot preserves changes that already existed before the task.
 
@@ -44,7 +46,7 @@ If your Python command is `python3`, update `command` in both plugin MCP config 
 
 `begin_review` → edit and validate → `refresh_review` → `open_review` → human comments → `get_feedback` → fixes → refresh the same session.
 
-The embedded panel sends feedback through the current conversation bridge when available. A standalone browser saves local feedback and offers copy/export; paste it into Codex. Changed revisions invalidate old approvals. Binary, oversized, and truncated files cannot receive a complete approval through the panel.
+The embedded panel submits feedback to the current conversation when the bridge is available. During an active turn it can enter the message queue. Only an agent that reads the exact delivery and revision can confirm receipt through `acknowledge_feedback`; submission alone does not imply receipt. A standalone browser saves feedback and offers copy/export. Changed revisions invalidate old approvals. Binary, oversized, and truncated files cannot receive a complete approval through the panel.
 
 Web previews use your project's development server. The plugin does not run project commands or commit/push code. Review snapshots include source code and must remain local. The local server binds to loopback and requires a random URL token.
 

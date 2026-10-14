@@ -639,6 +639,51 @@
         font-weight: 550;
         margin-right: auto;
       }
+      .preview-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .preview-launch {
+        display: inline-flex;
+        padding: 10px 16px;
+        color: white;
+        background: var(--green);
+        border-radius: 7px;
+        text-decoration: none;
+      }
+      #preview-open-fallback {
+        max-width: 100%;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      #preview-empty {
+        justify-content: flex-start;
+        overflow: auto;
+      }
+      #preview-empty > * {
+        flex-shrink: 0;
+      }
+      #preview-open-fallback p {
+        margin: 8px 0;
+      }
+      #preview-copy-address {
+        width: 100%;
+        max-width: 360px;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+      .preview-notice {
+        padding: 8px 14px;
+        font-size: 11px;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+      }
       .preview-tools button {
         padding: 4px 9px;
         font-size: 11px;
@@ -1472,12 +1517,47 @@
               >
                 <span data-icon="refresh"></span></button
               ><button id="pick">标记界面</button>
+              <button id="preview-check">检查服务</button>
+              <button id="preview-address-edit">更新地址</button>
             </div>
             <div id="preview-empty" class="empty">
               <span class="empty-icon" data-icon="monitor"></span
-              ><strong>等待运行预览</strong>让 Codex
-              启动项目，并提供运行地址。<br />非 Web
-              项目可在修改说明中查看运行方法。
+              ><strong id="preview-state-title">等待运行预览</strong>
+              <span id="preview-state-description"
+                >让 Codex 启动项目，并提供运行地址。</span
+              >
+              <div id="preview-actions" class="preview-actions hidden">
+                <a
+                  id="preview-launch"
+                  class="preview-launch"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >打开运行页面 ↗</a
+                >
+                <button id="preview-comment">添加界面反馈</button>
+              </div>
+              <div id="preview-open-fallback" class="hidden">
+                <a
+                  id="preview-open-direct"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >直接打开运行地址 ↗</a
+                >
+                <button id="preview-copy-url">复制运行地址</button>
+                <p>若页面没有打开，可复制地址，在 Codex 的新标签页中粘贴。</p>
+                <input
+                  id="preview-copy-address"
+                  aria-label="运行地址"
+                  readonly
+                />
+              </div>
+            </div>
+            <div
+              id="preview-notice"
+              class="preview-notice hidden"
+              role="status"
+            >
+              正在加载运行页面；如果页面没有显示，可点击下方打开入口。
             </div>
             <div id="preview-canvas" class="preview-canvas hidden">
               <div class="preview-frame" id="preview-frame">
@@ -1496,9 +1576,10 @@
             </div>
             <div id="preview-help" class="preview-help hidden">
               <span id="preview-url" class="url">尚未提供运行地址</span
+              ><span id="preview-health" role="status">尚未检查</span
               ><span id="pick-help">点击标记界面，留下位置反馈。</span
               ><a id="preview-open" target="_blank" rel="noopener noreferrer"
-                >独立打开 ↗</a
+                >打开运行页面 ↗</a
               >
             </div>
           </section>
@@ -1542,6 +1623,13 @@
         </div>
         <div id="comments" class="comments"></div>
         <div class="feedback-bottom">
+          <span
+            id="delivery-status"
+            class="bridge-note"
+            role="status"
+            aria-live="polite"
+            >意见保存在当前任务</span
+          >
           <button id="send" class="primary">
             <span data-icon="arrow"></span>发送到当前对话</button
           ><button id="request-changes">请求修改</button
@@ -1650,6 +1738,31 @@
         <button id="tasks-reload">刷新任务列表</button>
       </section>
     </div>
+    <div
+      id="preview-address-dialog"
+      class="dialog-backdrop hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="preview-address-title"
+    >
+      <form id="preview-address-form" class="dialog">
+        <h2 id="preview-address-title">更新运行地址</h2>
+        <label
+          >项目正在运行的地址<input
+            id="preview-address"
+            type="url"
+            required
+            placeholder="http://127.0.0.1:5173"
+        /></label>
+        <p class="muted">
+          先启动项目，再填写当前地址。原有代码和反馈记录会保留。
+        </p>
+        <div class="dialog-actions">
+          <button id="preview-address-cancel" type="button">取消</button
+          ><button type="submit" class="primary">保存并检查</button>
+        </div>
+      </form>
+    </div>
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     <script>
       "use strict";
@@ -1673,7 +1786,14 @@
         parentOrigin = null,
         bridgeInitialization = Promise.resolve(),
         sending = false,
-        commentFilter = "all";
+        commentFilter = "all",
+        taskRequest = 0;
+      let previewKey = null,
+        previewFallback = null,
+        previewExternal = false,
+        previewRouteLog = null,
+        previewHealth = null,
+        previewChecking = null;
       const statusText = {
         open: "待处理",
         addressed: "待复查",
@@ -1710,9 +1830,11 @@
           const item = pending.get(msg.id);
           pending.delete(msg.id);
           clearTimeout(item.timer);
-          if (msg.error)
-            item.reject(Error(msg.error.message || "Codex 接口请求失败"));
-          else {
+          if (msg.error) {
+            const error = Error(msg.error.message || "Codex 接口请求失败");
+            error.hostRejected = true;
+            item.reject(error);
+          } else {
             if (msg.result && event.origin !== "null")
               parentOrigin = event.origin;
             item.resolve(msg.result);
@@ -1722,8 +1844,10 @@
         if (msg.method === "ui/notifications/tool-result") {
           const data = msg.params?.structuredContent;
           if (data?.id) {
+            taskRequest++;
             review = data;
             render();
+            hideModal("task-dialog");
           } else if (data?.launcher) {
             showTasks(data.reviews);
           }
@@ -1757,7 +1881,7 @@
         try {
           await hostRpc("ui/initialize", {
             protocolVersion: "2026-01-26",
-            appInfo: { name: "review-desk", version: "0.2.0" },
+            appInfo: { name: "review-desk", version: "0.3.0" },
             appCapabilities: {},
           });
           window.parent.postMessage(
@@ -1929,7 +2053,9 @@
           "TASK SNAPSHOT · " +
           review.revision.slice(0, 10) +
           " · " +
-          review.id.slice(0, 8);
+          review.id.slice(0, 8) +
+          " · v" +
+          (review.runtimeVersion || BOOT?.version || "unknown");
         const decision = review.decision?.value;
         $("decision").textContent =
           decision === "approved"
@@ -2208,20 +2334,231 @@
       }
       function renderPreview() {
         const url = review.previewUrl;
+        const key = `${review.id}|${url}`;
+        if (previewKey !== key) {
+          previewKey = key;
+          previewFallback = null;
+          previewHealth = null;
+          if (url) queueMicrotask(() => checkPreview().catch(() => {}));
+        }
+        // The current Codex host removes HTTP frame origins from its CSP.
+        // Keep local HTTP previews in the host browser, without a blocked iframe.
+        previewExternal = !!url && (Boolean(previewFallback) || embedded);
+        const route = !url
+          ? "waiting"
+          : previewExternal
+            ? "host-browser"
+            : "iframe";
+        if (previewRouteLog !== `${key}|${route}`) {
+          previewRouteLog = `${key}|${route}`;
+          console.info("Review Desk preview route:", route);
+        }
         $("preview-url").textContent = url || "尚未提供运行地址";
-        $("preview-empty").classList.toggle("hidden", !!url);
-        $("preview-canvas").classList.toggle("hidden", !url);
+        $("preview-health").textContent = !url
+          ? "未配置"
+          : !previewHealth
+            ? "检查中…"
+            : {
+                reachable: "服务在线",
+                unavailable: "服务未响应",
+                external: "由浏览器检查",
+                missing: "未配置",
+                error: "检查失败，请重载插件",
+              }[previewHealth.state] || "尚未检查";
+        $("preview-check").disabled = !url;
+        renderDelivery();
+        $("preview-empty").classList.toggle(
+          "hidden",
+          !!url && !previewExternal,
+        );
+        $("preview-canvas").classList.toggle("hidden", !url || previewExternal);
         $("preview-help").classList.toggle("hidden", !url);
+        $("preview-actions").classList.toggle("hidden", !previewExternal);
+        $("preview-open-fallback").classList.toggle("hidden", !previewExternal);
+        $("preview-notice").classList.toggle("hidden", !url || previewExternal);
+        $("preview-state-title").textContent = !url
+          ? "等待运行预览"
+          : previewFallback
+            ? "面板内预览未能加载"
+            : "查看运行效果";
+        $("preview-state-description").textContent = !url
+          ? "让 Codex 启动项目，并提供运行地址。非 Web 项目可查看运行说明。"
+          : previewFallback ||
+            "打开运行页面后，回到这里填写界面反馈。代码和意见仍属于同一个审查任务。";
+        $("pick-help").textContent = previewExternal
+          ? "描述页面元素或区域，留下界面反馈。"
+          : "点击标记界面，留下位置反馈。";
+        $("pick").textContent = previewExternal ? "添加界面反馈" : "标记界面";
+        $("preview-frame").classList.remove("picking");
         $("pick").disabled = !url;
-        $("preview-reload").disabled = !url;
+        $("preview-reload").disabled = !url || previewExternal;
+        $("desktop").disabled = !url || previewExternal;
+        $("mobile").disabled = !url || previewExternal;
         if (url) {
-          $("preview-open").href = url;
-          if ($("preview-iframe").getAttribute("src") !== url)
+          $("preview-copy-address").value = url;
+          for (const id of [
+            "preview-open",
+            "preview-launch",
+            "preview-open-direct",
+          ])
+            $(id).href = url;
+          if (
+            !previewExternal &&
+            previewHealth &&
+            !["error", "unavailable"].includes(previewHealth.state) &&
+            $("preview-iframe").getAttribute("src") !== url
+          ) {
+            $("preview-notice").textContent =
+              "正在加载运行页面；如果页面没有显示，可点击下方打开入口。";
             $("preview-iframe").src = url;
-        } else {
+          }
+        }
+        if (!url || previewExternal || !previewHealth) {
           $("preview-iframe").removeAttribute("src");
         }
       }
+      async function checkPreview() {
+        if (!review?.previewUrl) return null;
+        const id = review.id,
+          url = review.previewUrl,
+          key = `${id}|${url}`;
+        if (previewChecking?.key === key) return previewChecking.promise;
+        const promise = (async () => {
+          let result;
+          try {
+            result = embedded
+              ? await tool("check_preview", { session_id: id })
+              : await request("/api/check-preview");
+          } catch {
+            result = { state: "error", url };
+          }
+          if (review?.id !== id || review.previewUrl !== url) return null;
+          previewHealth = result;
+          if (result.recovered) {
+            review.previewUrl = result.url;
+            review.decision = null;
+            previewKey = `${id}|${result.url}`;
+            notify("已从项目配置恢复运行地址");
+          }
+          if (result.state === "unavailable")
+            previewFallback =
+              "项目服务目前没有响应。请让 Codex 启动项目，或更新运行地址，再检查服务。已保存的反馈会保留。";
+          else if (previewFallback?.startsWith("项目服务"))
+            previewFallback = null;
+          renderPreview();
+          return result;
+        })();
+        previewChecking = { key, promise };
+        try {
+          return await promise;
+        } finally {
+          if (previewChecking?.promise === promise) previewChecking = null;
+        }
+      }
+      bind("preview-check", checkPreview);
+      bind("preview-address-edit", () => {
+        $("preview-address").value = review?.previewUrl || "";
+        showModal("preview-address-dialog");
+        $("preview-address").focus();
+      });
+      bind("preview-address-cancel", () => hideModal("preview-address-dialog"));
+      $("preview-address-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const id = review.id,
+            url = $("preview-address").value.trim();
+          const parsed = new URL(url);
+          if (
+            !["http:", "https:"].includes(parsed.protocol) ||
+            parsed.username ||
+            parsed.password
+          )
+            throw Error("请输入不含账号密码的 HTTP 或 HTTPS 地址");
+          const args = { session_id: id, preview_url: url };
+          const updated = embedded
+            ? await tool("refresh_review", args)
+            : await request("/api/refresh", args);
+          if (review?.id !== id) return;
+          review = updated;
+          hideModal("preview-address-dialog");
+          render();
+          await checkPreview();
+        } catch (error) {
+          notify(error.message, true);
+        }
+      });
+      function previewFailed(message) {
+        if (!review?.previewUrl || previewExternal) return;
+        previewFallback = message;
+        renderPreview();
+      }
+      $("preview-iframe").addEventListener("error", () =>
+        previewFailed(
+          "请打开运行页面检查服务、登录或浏览器限制，并在这里留下界面反馈。",
+        ),
+      );
+      $("preview-iframe").addEventListener("load", () => {
+        if (review?.previewUrl && !previewExternal)
+          $("preview-notice").textContent =
+            "若页面仍为空白，可打开运行页面，并在这里留下界面反馈。";
+      });
+      document.addEventListener("securitypolicyviolation", (event) => {
+        if (
+          event.effectiveDirective === "frame-src" &&
+          review?.previewUrl &&
+          event.blockedURI?.startsWith(new URL(review.previewUrl).origin)
+        )
+          previewFailed(
+            "当前面板无法直接显示这个运行地址。请打开运行页面查看效果，再回到这里填写反馈。",
+          );
+      });
+      async function openPreview(event) {
+        if (!review?.previewUrl) {
+          event.preventDefault();
+          return;
+        }
+        if (!embedded) return;
+        event.preventDefault();
+        try {
+          const id = review.id;
+          const health = await checkPreview();
+          if (review?.id !== id || !health) throw Error("审查任务已切换");
+          if (["unavailable", "error"].includes(health.state)) {
+            notify("请先启动项目或更新运行地址，再打开预览", true);
+            return;
+          }
+          await bridgeInitialization;
+          if (bridgeReady) {
+            const result = await hostRpc("ui/open-link", {
+              url: review.previewUrl,
+            });
+            if (result?.isError) throw Error("宿主未能打开预览");
+          } else if (window.openai?.openExternal) {
+            await window.openai.openExternal({ href: review.previewUrl });
+          } else throw Error("浏览器连接不可用");
+          notify("已请求打开运行页面；界面反馈仍可在这里保存");
+        } catch {
+          previewFallback =
+            "未能通过宿主打开页面。请使用直接打开链接，反馈仍可保存到当前任务。";
+          renderPreview();
+          notify("打开未成功，请使用直接打开运行地址", true);
+        }
+      }
+      for (const id of ["preview-open", "preview-launch"])
+        $(id).addEventListener("click", openPreview);
+      bind("preview-copy-url", async () => {
+        if (!review?.previewUrl) return;
+        const input = $("preview-copy-address");
+        input.focus();
+        input.select();
+        try {
+          await navigator.clipboard.writeText(review.previewUrl);
+          notify("运行地址已复制，可粘贴到 Codex 新标签页");
+        } catch {
+          notify("运行地址已选中，按 Ctrl+C 复制");
+        }
+      });
+      bind("preview-comment", () => openComment({ type: "preview" }));
       function applyLayout() {
         const both = splitMode && tab !== "checks";
         $("panes").classList.toggle("split", both);
@@ -2363,7 +2700,12 @@
           $("save-comment").disabled = false;
         }
       });
-      for (const id of ["comment-dialog", "copy-dialog", "task-dialog"]) {
+      for (const id of [
+        "comment-dialog",
+        "copy-dialog",
+        "task-dialog",
+        "preview-address-dialog",
+      ]) {
         $(id).addEventListener("click", (e) => {
           if (e.target === $(id) && (id !== "task-dialog" || review))
             hideModal(id);
@@ -2389,6 +2731,7 @@
           closeFilePicker();
           hideModal("comment-dialog");
           hideModal("copy-dialog");
+          hideModal("preview-address-dialog");
           if (review) hideModal("task-dialog");
           $("preview-frame").classList.remove("picking");
           $("pick").textContent = "标记界面";
@@ -2434,9 +2777,17 @@
         $("mobile").setAttribute("aria-pressed", "true");
       });
       bind("preview-reload", () => {
-        $("preview-iframe").src = review.previewUrl;
+        if (review?.previewUrl && !previewExternal) {
+          $("preview-notice").textContent =
+            "正在重新加载；如果页面没有显示，可点击下方打开入口。";
+          $("preview-iframe").src = review.previewUrl;
+        }
       });
       bind("pick", () => {
+        if (previewExternal) {
+          openComment({ type: "preview" });
+          return;
+        }
         const active = $("preview-frame").classList.toggle("picking");
         $("pick").textContent = active ? "取消标记" : "标记界面";
         if (active) notify("点击界面上希望调整的位置");
@@ -2453,9 +2804,35 @@
           viewport: `${Math.round(rect.width)} × ${Math.round(rect.height)}`,
         });
       };
+      function renderDelivery() {
+        const d = review?.delivery;
+        $("delivery-status").textContent = !d
+          ? "意见已保存在当前任务"
+          : !d.current
+            ? "当前意见已变化，请重新发送"
+            : {
+                prepared: "已保存，尚未提交到对话",
+                submitting: "正在提交，等待结果确认",
+                submitted: "已提交，等待 Codex 接收确认",
+                uncertain: "提交结果未确认，请检查接收状态",
+                received: "Codex 已接收这版反馈",
+                failed: "提交失败，意见仍已保存",
+              }[d.state] || "意见已保存";
+      }
+      async function checkDelivery() {
+        if (!review) return;
+        const id = review.id;
+        const data = embedded
+          ? await tool("get_delivery_status", { session_id: id })
+          : await request("/api/delivery-status");
+        if (review?.id === id) {
+          review.delivery = data.delivery;
+          renderDelivery();
+        }
+      }
       async function getFeedback() {
         return embedded
-          ? await tool("get_feedback", { session_id: review.id })
+          ? await tool("prepare_feedback", { session_id: review.id })
           : await request("/api/feedback");
       }
       async function sendFeedback() {
@@ -2469,10 +2846,16 @@
         }
         sending = true;
         $("send").disabled = true;
+        const sessionId = review.id;
+        let hostAttempted = false;
         try {
           let feedback;
           try {
-            feedback = await getFeedback();
+            feedback = embedded
+              ? await tool("prepare_feedback", { session_id: sessionId })
+              : await request("/api/prepare-feedback", {
+                  session_id: sessionId,
+                });
           } catch (e) {
             if (!embedded) throw e;
             feedback = { message: localFeedback() };
@@ -2480,20 +2863,72 @@
           }
           if (embedded) {
             try {
+              if (!feedback.delivery)
+                throw Error("插件服务需要重载，反馈仍可复制");
+              if (review?.id !== sessionId) throw Error("审查任务已切换");
+              review.delivery = feedback.delivery;
+              renderDelivery();
+              if (
+                ["submitting", "submitted", "uncertain", "received"].includes(
+                  feedback.delivery.state,
+                )
+              ) {
+                await checkDelivery();
+                notify(
+                  feedback.delivery.state === "uncertain"
+                    ? "上次发送结果待确认，请先检查当前对话，避免重复发送"
+                    : "这版反馈已提交；新增意见后可再次发送",
+                );
+                return;
+              }
               await bridgeInitialization;
-              if (bridgeReady)
-                await hostRpc("ui/message", {
+              await tool("record_delivery", {
+                session_id: sessionId,
+                delivery_id: feedback.delivery.id,
+                state: "submitting",
+              });
+              hostAttempted = true;
+              if (bridgeReady) {
+                const result = await hostRpc("ui/message", {
                   role: "user",
                   content: [{ type: "text", text: feedback.message }],
                 });
-              else if (window.openai?.sendFollowUpMessage)
+                if (result?.isError) {
+                  const rejection = Error("宿主拒绝提交反馈");
+                  rejection.hostRejected = true;
+                  throw rejection;
+                }
+              } else if (window.openai?.sendFollowUpMessage)
                 await window.openai.sendFollowUpMessage({
                   prompt: feedback.message,
                 });
               else throw Error("对话未连接");
-              notify("反馈已提交到当前对话");
+              const updated = await tool("record_delivery", {
+                session_id: sessionId,
+                delivery_id: feedback.delivery.id,
+                state: "submitted",
+              });
+              if (review?.id === sessionId) {
+                review.delivery = updated.delivery;
+                renderDelivery();
+              }
+              notify("已提交，等待 Codex 接收确认");
               return;
             } catch (e) {
+              if (feedback.delivery) {
+                try {
+                  const updated = await tool("record_delivery", {
+                    session_id: sessionId,
+                    delivery_id: feedback.delivery.id,
+                    state:
+                      hostAttempted && !e.hostRejected ? "uncertain" : "failed",
+                  });
+                  if (review?.id === sessionId) {
+                    review.delivery = updated.delivery;
+                    renderDelivery();
+                  }
+                } catch {}
+              }
               setConnection(false);
               notify("发送未成功，反馈仍保留，可复制返回对话", true);
             }
@@ -2527,6 +2962,16 @@
         return lines.join("\n");
       }
       bind("send", sendFeedback);
+      setInterval(() => {
+        if (
+          document.visibilityState !== "hidden" &&
+          review?.delivery?.current &&
+          ["prepared", "submitting", "submitted", "uncertain"].includes(
+            review.delivery.state,
+          )
+        )
+          checkDelivery().catch(() => {});
+      }, 4000);
       bind("filter-all", () => {
         commentFilter = "all";
         renderComments();
@@ -2560,12 +3005,13 @@
           notify("这是旧版本意见，请确认当前代码或界面的位置");
       }
       async function loadTasks() {
+        const generation = ++taskRequest;
         try {
           $("task-error").classList.add("hidden");
           const data = embedded
             ? await tool("list_reviews", {})
             : await request("/api/reviews");
-          showTasks(data.reviews);
+          if (generation === taskRequest) showTasks(data.reviews);
         } catch (e) {
           $("task-error").textContent = e.message;
           $("task-error").classList.remove("hidden");

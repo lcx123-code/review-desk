@@ -94,12 +94,18 @@ if (!process.argv[2]) {
       "comment saved",
     );
   }
-  function makeDom(html, embedded = false, denyMessage = false) {
+  function makeDom(
+    html,
+    embedded = false,
+    denyMessage = false,
+    denyOpen = false,
+  ) {
     const console = new VirtualConsole();
     console.on("jsdomError", (error) => {
       if (!error.message.includes("navigation")) errors.push(error.message);
     });
     const sent = [];
+    const opened = [];
     const dom = new JSDOM(html, {
       url: realUrl.href,
       runScripts: "dangerously",
@@ -125,6 +131,18 @@ if (!process.argv[2]) {
                     data = await api("/api/action", args);
                   if (name === "get_feedback")
                     data = await api("/api/feedback?session=" + sid);
+                  if (name === "prepare_feedback")
+                    data = await api("/api/prepare-feedback", args);
+                  if (name === "record_delivery")
+                    data = await api("/api/delivery", args);
+                  if (name === "get_delivery_status")
+                    data = await api(
+                      "/api/delivery-status?session=" + args.session_id,
+                    );
+                  if (name === "check_preview")
+                    data = await api(
+                      "/api/check-preview?session=" + args.session_id,
+                    );
                   if (name === "refresh_review")
                     data = await api("/api/refresh", args);
                   if (name === "open_review")
@@ -133,9 +151,19 @@ if (!process.argv[2]) {
                   result = { structuredContent: data, content: [] };
                 }
                 if (message.method === "ui/message") {
-                  if (denyMessage) throw Error("Host does not support sending");
-                  sent.push(message.params);
-                  result = {};
+                  if (denyMessage === "result") result = { isError: true };
+                  else {
+                    if (denyMessage)
+                      throw Error("Host does not support sending");
+                    sent.push(message.params);
+                    result = {};
+                  }
+                }
+                if (message.method === "ui/open-link") {
+                  if (denyOpen === "rpc")
+                    throw Error("Host open-link unavailable");
+                  opened.push(message.params);
+                  result = denyOpen ? { isError: true } : {};
                 }
                 if (message.method === "ui/initialize") {
                   assert.equal(message.params.appInfo.name, "review-desk");
@@ -165,7 +193,7 @@ if (!process.argv[2]) {
         }
       },
     });
-    return { dom, sent };
+    return { dom, sent, opened };
   }
   (async () => {
     const html = await (await fetch(info.url)).text();
@@ -363,7 +391,9 @@ if (!process.argv[2]) {
       () =>
         w.document
           .getElementById("preview-iframe")
-          .contentDocument?.getElementById("start"),
+          .contentDocument?.getElementById("start") &&
+        w.document.getElementById("preview-iframe").contentDocument
+          ?.readyState === "complete",
       "preview document loaded",
     );
     const preview = w.document.getElementById("preview-iframe").contentWindow;
@@ -384,7 +414,7 @@ if (!process.argv[2]) {
         "\\u003c",
       ),
     );
-    const { dom: app, sent } = makeDom(embeddedHtml, true);
+    const { dom: app, sent, opened } = makeDom(embeddedHtml, true);
     const aw = app.window;
     await waitFor(
       () =>
@@ -393,12 +423,92 @@ if (!process.argv[2]) {
           .textContent.includes("反馈将提交到当前对话"),
       "host initialized",
     );
+    assert.equal(
+      aw.document.getElementById("preview-iframe").hasAttribute("src"),
+      false,
+    );
+    assert.ok(
+      aw.document.getElementById("preview-canvas").classList.contains("hidden"),
+    );
+    assert.ok(
+      !aw.document
+        .getElementById("preview-actions")
+        .classList.contains("hidden"),
+    );
+    assert.equal(aw.document.getElementById("mobile").disabled, true);
+    click(aw, "preview-launch");
+    await waitFor(() => opened.length === 1, "host browser open-link");
+    assert.equal(opened[0].url, info.previewUrl);
+    assert.ok(
+      !aw.document
+        .getElementById("preview-open-fallback")
+        .classList.contains("hidden"),
+      "a host acceptance without navigation must retain an actionable fallback",
+    );
+    click(aw, "preview-copy-url");
+    await waitFor(
+      () => aw.document.getElementById("toast").textContent.includes("复制"),
+      "preview address copy fallback",
+    );
+    const previewAddress = aw.document.getElementById("preview-copy-address");
+    assert.equal(previewAddress.value, info.previewUrl);
+    assert.equal(previewAddress.selectionEnd, info.previewUrl.length);
+    click(aw, "preview-comment");
+    await waitFor(
+      () =>
+        !aw.document
+          .getElementById("comment-dialog")
+          .classList.contains("hidden"),
+      "external preview comment",
+    );
+    input(aw, "element", "运行页面右下角的重置按钮");
+    await addComment(aw, "浏览器预览意见仍属于当前任务");
+    const externalComment = (
+      await api("/api/feedback?session=" + sid)
+    ).comments.find((c) => c.text === "浏览器预览意见仍属于当前任务");
+    assert.equal(externalComment.target.type, "preview");
+    assert.equal(externalComment.target.url, info.previewUrl);
+    assert.equal(externalComment.target.element, "运行页面右下角的重置按钮");
+    assert.equal(externalComment.target.viewport, "");
     click(aw, "send");
     click(aw, "send");
     await waitFor(() => sent.length === 1, "MCP feedback sent");
     assert.equal(sent[0].role, "user");
     assert.ok(sent[0].content[0].text.includes(sid));
     assert.ok(sent[0].content[0].text.includes("手机上按钮"));
+    await waitFor(
+      () =>
+        aw.document
+          .getElementById("delivery-status")
+          .textContent.includes("等待 Codex"),
+      "submission is not receipt",
+    );
+    click(aw, "send");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(sent.length, 1);
+    const receivedFeedback = await api("/api/feedback?session=" + sid);
+    const ack = spawnSync(
+      process.env.REVIEW_DESK_PYTHON || "python",
+      [
+        path.join(__dirname, "../scripts/review_desk.py"),
+        "--data-dir",
+        info.dataDir,
+        "acknowledge",
+        sid,
+        receivedFeedback.delivery.id,
+        "--revision",
+        receivedFeedback.revision,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(ack.status, 0, ack.stderr);
+    await waitFor(
+      () =>
+        aw.document
+          .getElementById("delivery-status")
+          .textContent.includes("Codex 已接收"),
+      "agent receipt appears in panel",
+    );
     click(aw, "general-comment");
     await waitFor(
       () =>
@@ -458,6 +568,167 @@ if (!process.argv[2]) {
         .textContent.includes("不可用"),
     );
     unavailable.window.close();
+    const { dom: rejectedMessage } = makeDom(embeddedHtml, true, "result");
+    await waitFor(
+      () =>
+        rejectedMessage.window.document
+          .getElementById("connection-title")
+          .textContent.includes("已连接"),
+      "message-rejected host initialized",
+    );
+    click(rejectedMessage.window, "send");
+    await waitFor(
+      () =>
+        !rejectedMessage.window.document
+          .getElementById("copy-dialog")
+          .classList.contains("hidden"),
+      "isError submission falls back to copy",
+    );
+    assert.equal(
+      (await api("/api/delivery-status?session=" + sid)).delivery.state,
+      "failed",
+    );
+    rejectedMessage.window.close();
+    for (const denial of [true, "rpc"]) {
+      const { dom: refused } = makeDom(embeddedHtml, true, false, denial);
+      const rw = refused.window;
+      await waitFor(
+        () =>
+          rw.document
+            .getElementById("connection-title")
+            .textContent.includes("已连接"),
+        "refused-link host initialized",
+      );
+      click(rw, "preview-launch");
+      await waitFor(
+        () =>
+          rw.document
+            .getElementById("preview-state-description")
+            .textContent.includes("未能"),
+        "host rejected open-link offers direct link",
+      );
+      assert.equal(
+        rw.document.getElementById("preview-open-direct").href,
+        info.previewUrl + "/",
+      );
+      assert.ok(
+        rw.document
+          .getElementById("preview-state-description")
+          .textContent.includes("未能"),
+      );
+      assert.equal(
+        rw.document.getElementById("preview-iframe").hasAttribute("src"),
+        false,
+      );
+      refused.window.close();
+    }
+    const violation = new w.Event("securitypolicyviolation");
+    Object.assign(violation, {
+      effectiveDirective: "frame-src",
+      blockedURI: info.previewUrl,
+    });
+    w.document.dispatchEvent(violation);
+    assert.ok(
+      w.document.getElementById("preview-canvas").classList.contains("hidden"),
+    );
+    assert.equal(
+      w.document.getElementById("preview-iframe").hasAttribute("src"),
+      false,
+    );
+    assert.ok(
+      w.document
+        .getElementById("preview-state-description")
+        .textContent.includes("无法直接显示"),
+    );
+    click(w, "refresh");
+    await waitFor(
+      () => w.document.getElementById("toast").textContent.includes("已读取"),
+      "refresh after preview failure",
+    );
+    assert.equal(
+      w.document.getElementById("preview-iframe").hasAttribute("src"),
+      false,
+    );
+    assert.ok(
+      !w.document
+        .getElementById("preview-actions")
+        .classList.contains("hidden"),
+    );
+    click(w, "preview-address-edit");
+    await waitFor(
+      () =>
+        !w.document
+          .getElementById("preview-address-dialog")
+          .classList.contains("hidden"),
+      "edit preview address",
+    );
+    w.document.getElementById("preview-address").value = "http://127.0.0.1:1";
+    w.document
+      .getElementById("preview-address-form")
+      .dispatchEvent(
+        new w.Event("submit", { bubbles: true, cancelable: true }),
+      );
+    await waitFor(
+      () =>
+        w.document
+          .getElementById("preview-health")
+          .textContent.includes("未响应"),
+      "dead preview has actionable state",
+    );
+    assert.ok(
+      w.document
+        .getElementById("preview-state-description")
+        .textContent.includes("启动项目"),
+    );
+    click(w, "preview-address-edit");
+    await waitFor(
+      () =>
+        !w.document
+          .getElementById("preview-address-dialog")
+          .classList.contains("hidden"),
+      "edit recovered address",
+    );
+    w.document.getElementById("preview-address").value = info.previewUrl;
+    w.document
+      .getElementById("preview-address-form")
+      .dispatchEvent(
+        new w.Event("submit", { bubbles: true, cancelable: true }),
+      );
+    await waitFor(
+      () =>
+        w.document
+          .getElementById("preview-health")
+          .textContent.includes("在线"),
+      "updated preview recovers",
+    );
+    const staticHtml = html.replace(
+      /\/\*REVIEW_BOOT\*\/\s*null/,
+      JSON.stringify({ embedded: true, session: null, version: "0.3.0" }),
+    );
+    const { dom: staticApp } = makeDom(staticHtml, true);
+    staticApp.window.dispatchEvent(
+      new staticApp.window.MessageEvent("message", {
+        source: staticApp.window.parent,
+        origin: "https://host.example",
+        data: {
+          jsonrpc: "2.0",
+          method: "ui/notifications/tool-result",
+          params: { structuredContent: state },
+        },
+      }),
+    );
+    await waitFor(
+      () =>
+        staticApp.window.document.getElementById("title").textContent ===
+        state.title,
+      "cached template binds incoming task result",
+    );
+    assert.ok(
+      staticApp.window.document
+        .getElementById("task-dialog")
+        .classList.contains("hidden"),
+    );
+    staticApp.window.close();
     assert.deepEqual(errors, []);
     app.window.close();
     dom.window.close();
@@ -489,6 +760,17 @@ if (!process.argv[2]) {
             "feedback drawer collapse and reopen",
             "searchable file picker navigation",
             "real code context in feedback cards",
+            "embedded HTTP preview uses host browser without iframe request",
+            "host open-link carries exact preview URL",
+            "accepted open request retains direct link and selectable preview address",
+            "external preview comments retain task URL without invented coordinates",
+            "host RPC error and isError response expose direct open fallback",
+            "frame CSP failure survives refresh with visible open action",
+            "host submission is not agent receipt and cannot resend unchanged payload",
+            "agent acknowledgement updates the panel from durable delivery status",
+            "message isError response does not claim delivery",
+            "dead preview address can be updated and recover in the same task",
+            "immutable embedded template binds task notification without chooser race",
           ],
           limitations:
             "JSDOM does not validate browser pixels, native Codex embedding or actual iframe policy.",

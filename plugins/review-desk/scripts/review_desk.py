@@ -12,6 +12,7 @@ import difflib
 import hashlib
 import json
 import os
+import ipaddress
 from pathlib import Path
 import re
 import secrets
@@ -28,8 +29,8 @@ MAX_TOTAL = 20 * 1024 * 1024
 MAX_FILES = 2500
 MAX_ROWS = 12000
 UI_MIME = "text/html;profile=mcp-app"
-UI_URI = "ui://review-desk/panel-v1.html"
-VERSION = "0.2.0"
+UI_URI = "ui://review-desk/panel-v0.3.0.html"
+VERSION = "0.3.0"
 IDS = re.compile(r"^[a-f0-9]{24}$")
 
 
@@ -267,6 +268,8 @@ class Store:
             if summary is not None:
                 s["summary"] = summary[:8000]
             if preview_url is not None:
+                if preview_url != s.get("previewUrl"):
+                    s["decision"] = None
                 s["previewUrl"] = preview_url
             if checks is not None:
                 s["checks"] = checks
@@ -275,7 +278,11 @@ class Store:
 
     def view(self, s):
         changes = changed_files(s["baseline"], s["current"])
-        return {k: v for k, v in s.items() if k not in {"baseline", "current", "scope"}} | {
+        delivery = dict(s.get("deliveries", [])[-1]) if s.get("deliveries") else None
+        if delivery:
+            delivery["current"] = delivery["contentHash"] == feedback_hash(s)
+        return {k: v for k, v in s.items() if k not in {"baseline", "current", "scope", "deliveries"}} | {
+            "runtimeVersion": VERSION, "delivery": delivery,
             "files": changes, "stats": {"files": len(changes), "added": sum(c["added"] for c in changes), "deleted": sum(c["deleted"] for c in changes)},
             "complete": all(c["textual"] and not c["limited"] for c in changes)}
 
@@ -397,8 +404,123 @@ class Store:
             lines.append("\n审查已通过。保留本任务记录，后续操作按用户当前指令执行。")
         else:
             lines.append("\n请读取该 session 的最新反馈和代码，修复后刷新同一 session，供我再次审查。")
+        delivery = view.get("delivery")
+        if delivery and delivery["current"]:
+            lines.extend([f"\nDelivery: {delivery['id']}",
+                          "读取反馈后，请调用 acknowledge_feedback 确认该 Delivery 和 Revision，再按反馈修复。"])
         return {"session_id": sid, "revision": view["revision"], "comments": view["comments"],
-                "decision": view["decision"], "message": "\n".join(lines)}
+                "decision": view["decision"], "delivery": delivery, "message": "\n".join(lines)}
+
+    def prepare_feedback(self, session_id):
+        with lock_file(self.root):
+            s = self.load(session_id)
+            if digest(snapshot(Path(s["project"]), s["scope"])) != s["revision"]:
+                raise ValueError("代码已更新，请先刷新审查再发送反馈。")
+            if not s["decision"] and not any(c["status"] != "resolved" for c in s["comments"]):
+                raise ValueError("先添加反馈或记录审查决定。")
+            content_hash = feedback_hash(s)
+            deliveries = s.setdefault("deliveries", [])
+            latest = deliveries[-1] if deliveries else None
+            if not latest or latest["contentHash"] != content_hash:
+                deliveries.append({"id": secrets.token_hex(12), "revision": s["revision"],
+                                   "contentHash": content_hash, "state": "prepared", "createdAt": now()})
+                s["deliveries"] = deliveries[-20:]
+            elif latest["state"] == "failed":
+                latest.update(state="prepared", updatedAt=now())
+            self.save(s)
+        return self.feedback(session_id)
+
+    def record_delivery(self, session_id, delivery_id, state):
+        if state not in {"submitting", "submitted", "uncertain", "failed"}:
+            raise ValueError("The panel cannot assert agent receipt.")
+        with lock_file(self.root):
+            s = self.load(session_id)
+            delivery = next((d for d in s.get("deliveries", []) if d["id"] == delivery_id), None)
+            if not delivery:
+                raise ValueError("Unknown feedback delivery.")
+            if delivery["contentHash"] != feedback_hash(s):
+                raise ValueError("反馈已变化，请重新发送当前意见。")
+            if delivery["state"] != "received":
+                delivery.update(state=state, updatedAt=now())
+            self.save(s)
+        return self.view(s)
+
+    def acknowledge_feedback(self, session_id, delivery_id, revision):
+        """Agent-only receipt: the UI cannot claim that the agent read feedback."""
+        with lock_file(self.root):
+            s = self.load(session_id)
+            delivery = next((d for d in s.get("deliveries", []) if d["id"] == delivery_id), None)
+            if not delivery or delivery["revision"] != revision or s["revision"] != revision:
+                raise ValueError("Feedback delivery or revision does not match.")
+            if delivery["contentHash"] != feedback_hash(s):
+                raise ValueError("反馈内容已变化，请读取当前反馈。")
+            delivery.update(state="received", receivedAt=now())
+            self.save(s)
+        return self.view(s)
+
+    def delivery_status(self, session_id):
+        with lock_file(self.root):
+            session = self.load(session_id)
+            delivery = dict(session.get("deliveries", [])[-1]) if session.get("deliveries") else None
+            if delivery:
+                delivery["current"] = delivery["contentHash"] == feedback_hash(session)
+        return {"session_id": session_id, "delivery": delivery, "runtimeVersion": VERSION}
+
+    def check_preview(self, session_id):
+        view = self.get(session_id)
+        status = probe_preview(view.get("previewUrl", ""))
+        # Recover only from the project's explicit configuration, never guessed ports.
+        if status["state"] == "unavailable":
+            try:
+                config = json.loads((Path(view["project"]) / ".codex" / "review-desk.json").read_text(encoding="utf-8"))
+                candidate = config.get("previewUrl")
+                if candidate and candidate != view["previewUrl"]:
+                    recovered = probe_preview(candidate)
+                    if recovered["state"] == "reachable":
+                        self.refresh(session_id, preview_url=candidate)
+                        status = recovered | {"recovered": True}
+            except (OSError, ValueError, TypeError):
+                pass
+        return status | {"session_id": session_id, "runtimeVersion": VERSION}
+
+
+def feedback_hash(session):
+    return digest({"id": session["id"], "revision": session["revision"], "title": session["title"],
+                   "comments": [c for c in session["comments"] if c["status"] != "resolved"],
+                   "decision": session["decision"]})
+
+
+def probe_preview(url):
+    from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
+    from urllib.error import HTTPError
+    status = {"url": url, "checkedAt": now(), "state": "missing"}
+    if not url:
+        return status
+    validate_preview(url)
+    parsed = urlsplit(url)
+    try:
+        local = parsed.hostname == "localhost" or ipaddress.ip_address(parsed.hostname).is_loopback
+    except ValueError:
+        local = False
+    if not local:
+        return status | {"state": "external"}
+    class NoRedirect(HTTPRedirectHandler):
+        def redirect_request(self, *_):
+            return None
+    opener = build_opener(ProxyHandler({}), NoRedirect())
+    for method in ("HEAD", "GET"):
+        try:
+            with opener.open(Request(url, method=method), timeout=1.5) as response:
+                return status | {"state": "reachable", "httpStatus": response.status}
+        except HTTPError as error:
+            code = error.code
+            error.close()
+            if code in {405, 501} and method == "HEAD":
+                continue
+            return status | {"state": "reachable" if code < 400 or code in {401, 403} else "unavailable", "httpStatus": code}
+        except (OSError, ValueError):
+            return status | {"state": "unavailable"}
+    return status | {"state": "unavailable"}
 
 
 def validate_preview(url):
@@ -457,7 +579,7 @@ class PanelServer:
                     path, query = self.authorize()
                     sid = query.get("session", [""])[0]
                     if path == "/health":
-                        self.reply(200, {"ok": True})
+                        self.reply(200, {"ok": True, "version": VERSION})
                     elif path == "/":
                         self.reply(200, (ROOT / "web" / "panel.html").read_bytes(), "text/html; charset=utf-8")
                     elif path == "/api/review":
@@ -466,6 +588,10 @@ class PanelServer:
                         self.reply(200, store.feedback(sid))
                     elif path == "/api/reviews":
                         self.reply(200, store.list_reviews())
+                    elif path == "/api/check-preview":
+                        self.reply(200, store.check_preview(sid))
+                    elif path == "/api/delivery-status":
+                        self.reply(200, store.delivery_status(sid))
                     else:
                         self.reply(404, {"error": "Not found"})
                 except PermissionError as exc:
@@ -483,7 +609,11 @@ class PanelServer:
                     if path == "/api/action":
                         value = store.mutate(body["session_id"], body["action"], body)
                     elif path == "/api/refresh":
-                        value = store.refresh(body["session_id"])
+                        value = store.refresh(body["session_id"], preview_url=body.get("preview_url"))
+                    elif path == "/api/prepare-feedback":
+                        value = store.prepare_feedback(body["session_id"])
+                    elif path == "/api/delivery":
+                        value = store.record_delivery(body["session_id"], body["delivery_id"], body["state"])
                     else:
                         self.reply(404, {"error": "Not found"})
                         return
@@ -518,7 +648,7 @@ def ensure_panel(store):
                 info = json.loads(pointer.read_text(encoding="utf-8"))
                 request = Request(f"http://127.0.0.1:{int(info['port'])}/health", headers={"X-Review-Token": info["token"]})
                 with urlopen(request, timeout=.7) as response:
-                    if response.status == 200:
+                    if response.status == 200 and json.load(response).get("version") == VERSION:
                         return info
             except (OSError, ValueError, KeyError):
                 pass
@@ -535,7 +665,7 @@ def ensure_panel(store):
                 info = json.loads(pointer.read_text(encoding="utf-8"))
                 try:
                     with urlopen(Request(f"http://127.0.0.1:{int(info['port'])}/health", headers={"X-Review-Token": info["token"]}), timeout=.5) as response:
-                        if response.status == 200:
+                        if response.status == 200 and json.load(response).get("version") == VERSION:
                             return info
                 except OSError:
                     pass
@@ -569,6 +699,11 @@ TOOLS = [
                 SID | {"summary": STRING, "preview_url": STRING, "checks": {"type": "array", "items": {"type": "object", "properties": {"name": STRING, "status": {"type": "string", "enum": ["passed", "failed", "not_run"]}}, "required": ["name", "status"], "additionalProperties": False}}}, ("session_id",)),
     tool_schema("open_review", "Open human review panel with code diff, live Web preview, comments and feedback submission. Also returns local browser fallback URL.", SID, ("session_id",), True),
     tool_schema("get_feedback", "Read saved human review comments and decision for the given task session.", SID, ("session_id",), True),
+    tool_schema("check_preview", "Check the local preview and recover its address from explicit project configuration. Does not execute project commands.", SID, ("session_id",)),
+    tool_schema("prepare_feedback", "Prepare a durable feedback delivery for the current task and revision.", SID, ("session_id",)),
+    tool_schema("record_delivery", "Record host submission or failure; cannot assert agent receipt.", SID | {"delivery_id": STRING, "state": {"type": "string", "enum": ["submitting", "submitted", "uncertain", "failed"]}}, ("session_id", "delivery_id", "state")),
+    tool_schema("get_delivery_status", "Read the durable feedback delivery status without scanning project files.", SID, ("session_id",), True),
+    tool_schema("acknowledge_feedback", "Confirm receipt only after the agent has read this exact feedback delivery and revision.", SID | {"delivery_id": STRING, "revision": STRING}, ("session_id", "delivery_id", "revision")),
     tool_schema("review_action", "Save a user comment, viewed marker or explicit review decision. Never commits or executes project code.",
                 SID | {"revision": STRING, "action": {"type": "string", "enum": ["comment", "comment_status", "viewed", "decision"]}, "text": STRING,
                        "target": {"type": "object"}, "comment_id": STRING, "status": {"type": "string", "enum": ["open", "addressed", "resolved"]},
@@ -578,6 +713,8 @@ next(t for t in TOOLS if t["name"] == "open_review")["_meta"] = {
 next(t for t in TOOLS if t["name"] == "open_review_panel")["_meta"] = {
     "ui": {"resourceUri": UI_URI}, "openai/outputTemplate": UI_URI,
     "openai/ui": {"entrypoints": [{"type": "thread"}]}}
+for name in ("get_feedback", "acknowledge_feedback"):
+    next(t for t in TOOLS if t["name"] == name)["_meta"] = {"ui": {"visibility": ["model"]}}
 
 
 def mcp(store):
@@ -609,12 +746,10 @@ def mcp(store):
                 raise ValueError("Unknown review UI resource.")
             view = last_view
             launcher = bool(view and view.get("launcher"))
-            preview_urls = ([x.get("previewUrl") for x in view["reviews"]] if launcher else
-                            [view.get("previewUrl")] if view else [])
-            origins = sorted({validate_preview(url) for url in preview_urls if url})
+            origins = []  # Embedded previews use the host browser; this template is immutable.
             html = (ROOT / "web" / "panel.html").read_text(encoding="utf-8")
-            boot = json.dumps({"embedded": True, "session": None if launcher else view,
-                               "reviews": view["reviews"] if launcher else None}, ensure_ascii=False).replace("<", "\\u003c")
+            # Cached resources must not contain a task-specific boot snapshot.
+            boot = json.dumps({"embedded": True, "session": None, "version": VERSION})
             html = re.sub(r"/\*REVIEW_BOOT\*/\s*null", lambda _: boot, html, count=1)
             csp = {"connectDomains": [], "resourceDomains": [], "frameDomains": origins}
             return {"contents": [{"uri": uri, "mimeType": UI_MIME, "text": html,
@@ -643,14 +778,21 @@ def mcp(store):
                 value = store.refresh(**args)
             elif name == "get_feedback":
                 value = store.feedback(args["session_id"])
+            elif name == "check_preview":
+                value = store.check_preview(**args)
+            elif name == "prepare_feedback":
+                value = store.prepare_feedback(**args)
+            elif name == "record_delivery":
+                value = store.record_delivery(**args)
+            elif name == "get_delivery_status":
+                value = store.delivery_status(**args)
+            elif name == "acknowledge_feedback":
+                value = store.acknowledge_feedback(**args)
             elif name == "review_action":
                 value = store.mutate(args["session_id"], args["action"], args)
             else:
                 value = store.refresh(args["session_id"])
-                if panel is None:
-                    panel = PanelServer(store)
-                    panel.start()
-                value["fallbackUrl"] = panel.url(value["id"])
+                value["fallbackUrl"] = fallback_url(store, value["id"])
                 last_view = value
             output = result(value)
             if name in {"open_review", "open_review_panel"}:
@@ -730,6 +872,10 @@ def main():
     for name in ("open", "feedback"):
         child = commands.add_parser(name)
         child.add_argument("session_id")
+    ack = commands.add_parser("acknowledge")
+    ack.add_argument("session_id")
+    ack.add_argument("delivery_id")
+    ack.add_argument("--revision", required=True)
     configure = commands.add_parser("configure")
     configure.add_argument("--project", required=True)
     configure.add_argument("--preview-url")
@@ -779,6 +925,8 @@ def main():
         value = store.refresh(args.session_id, args.summary, args.preview_url, json.loads(args.checks_json) if args.checks_json else None)
     elif args.command == "feedback":
         value = store.feedback(args.session_id)
+    elif args.command == "acknowledge":
+        value = store.acknowledge_feedback(args.session_id, args.delivery_id, args.revision)
     else:
         value = store.refresh(args.session_id)
         value["fallbackUrl"] = fallback_url(store, args.session_id)

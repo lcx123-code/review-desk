@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "review-desk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Review Codex changes and running web previews, then send precise feedback back to the conversation.",
   "license": "MIT",
   "keywords": ["code-review", "preview", "feedback"],
